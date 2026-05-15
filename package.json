@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    "dev": "\"/Users/sonketsu.ou/Documents/New project/basketball/node-v20.19.1-darwin-arm64/bin/node\" ./node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3000",
+    "build": "\"/Users/sonketsu.ou/Documents/New project/basketball/node-v20.19.1-darwin-arm64/bin/node\" ./node_modules/next/dist/bin/next build",
+    "start": "\"/Users/sonketsu.ou/Documents/New project/basketball/node-v20.19.1-darwin-arm64/bin/node\" ./node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000"
+  },
+  "dependencies": {
+    "next": "15.5.9",
+    "react": "19.1.2",
+    "react-dom": "19.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "@types/react": "^19.2.14",
+    "tsx": "^4.21.0",
+    "typescript": "^5.5.4"
+  }
+}
