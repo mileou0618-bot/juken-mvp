@@ -97,15 +97,6 @@ export default function JukenResultPage() {
 
   return (
     <div className="result-page">
-      <header className="result-header">
-        <div className="result-header-inner">
-          <div className="result-brand">
-            metech-i <span>/juken</span>
-          </div>
-          <p className="result-sub">中学受験の保護者向け 学習管理診断</p>
-        </div>
-      </header>
-
       <main className="result-main">
         <section className="result-hero">
           <div className="result-pill">診断結果</div>

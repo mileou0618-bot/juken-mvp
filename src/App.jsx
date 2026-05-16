@@ -1,6 +1,5 @@
 
 import React, { useEffect, useState } from "react";
-import JukenResultPage from "./JukenResultPage.jsx";
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRWAZkYfowt0KgZQgvizc5-ICWqC9ZxMbtfdK__uEQjeNTNp7y3YSS32emGrammMCh/exec";
 
@@ -61,10 +60,8 @@ function Landing({ onStart }) {
       <header className="lp-header">
         <div className="lp-header-inner">
           <div>
-            <div className="lp-brand">
-              metech-i <span>/ juken</span>
-            </div>
-            <div className="lp-header-sub">中学受験の保護者向け 学習管理診断</div>
+            <div className="lp-brand">中学受験 学習管理診断</div>
+            <div className="lp-header-sub">塾の宿題を成績につなげる家庭学習チェック</div>
           </div>
         </div>
       </header>
@@ -73,7 +70,7 @@ function Landing({ onStart }) {
         <section className="lp-hero">
           <div className="lp-hero-inner">
             <div className="lp-hero-copy">
-              <p className="lp-pill">中学受験の保護者向け</p>
+              <p className="lp-pill">中学受験のご家庭向け</p>
 
               <h1>
                 塾の宿題を「こなす」だけでなく、
@@ -157,7 +154,7 @@ function Landing({ onStart }) {
       </main>
 
       <footer className="lp-footer">
-        運営会社：株式会社metech-i　｜　プライバシーポリシー
+        運営者情報　｜　プライバシーポリシー
       </footer>
     </div>
   );
@@ -304,7 +301,7 @@ export default function App() {
 
   if (screen === "basic") return <Basic form={form} setForm={setForm} onBack={()=>setScreen("landing")} onNext={()=>setScreen("questions")}/>;
   if (screen === "questions") return <Questions form={form} onBack={()=>setScreen("basic")} onDone={()=>setScreen("result")}/>;
-  if (screen === "result") return <JukenResultPage onBack={()=>setScreen("landing")} />;
+  if (screen === "result") return <Done onBack={()=>setScreen("landing")} />;
   if (screen === "done") return <Done onBack={()=>setScreen("landing")}/>;
   return <Landing onStart={()=>setScreen("basic")}/>;
 }

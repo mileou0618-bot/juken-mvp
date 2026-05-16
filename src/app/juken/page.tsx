@@ -8,7 +8,7 @@ export default function JukenLandingPage() {
     "@graph": [
       {
         "@type": "Organization",
-        name: "metech-i / juken",
+        name: "中学受験 学習管理診断",
         url: new URL("/juken", siteUrl).toString(),
       },
       {
@@ -56,22 +56,11 @@ export default function JukenLandingPage() {
   return (
     <div className="lp-page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <header className="lp-header">
-        <div className="lp-header-inner">
-          <div>
-            <div className="lp-brand">
-              metech-i <span>/ juken</span>
-            </div>
-            <div className="lp-header-sub">中学受験の保護者向け 学習管理診断</div>
-          </div>
-        </div>
-      </header>
-
       <main>
         <section className="lp-hero">
           <div className="lp-hero-inner">
             <div className="lp-hero-copy">
-              <p className="lp-pill">中学受験の保護者向け</p>
+              <p className="lp-pill">中学受験のご家庭向け</p>
 
               <h1>
                 塾の宿題を「こなす」だけでなく、
