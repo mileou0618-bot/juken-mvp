@@ -2198,6 +2198,50 @@ a.lp-cta[href="/juken/diagnosis"] {
 
 /* v18: Mobile collapse fix (<=768px) — home + diagnosis */
 @media (max-width: 768px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .lp-hero,
+  .lp-hero-inner,
+  .lp-hero-content,
+  .hero-content {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  .lp-title,
+  .hero-title,
+  .lp-hero h1 {
+    max-width: 100%;
+    font-size: 32px;
+    line-height: 1.35;
+    letter-spacing: -0.03em;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .lp-subtitle,
+  .hero-subtitle {
+    max-width: 100%;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .lp-cta,
+  .hero-cta,
+  .lp-hero a,
+  .lp-hero button {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
   /* Home */
   .lp-hero {
     padding: 56px 24px 40px;
