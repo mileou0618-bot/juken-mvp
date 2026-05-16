@@ -33,7 +33,22 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body>
+        {children}
+        <footer className="site-footer">
+          <div className="site-footer-inner">
+            <div className="site-footer-brand">運営：JUDAN JAPAN</div>
+            <div className="site-footer-desc">中学受験家庭向け学習整理サポート</div>
+            <div className="site-footer-links">
+              <a href="/privacy">プライバシーポリシー</a>
+              <span className="site-footer-sep">・</span>
+              <a href="/contact">お問い合わせ</a>
+              <span className="site-footer-sep">・</span>
+              <a href="/disclaimer">免責事項</a>
+            </div>
+          </div>
+        </footer>
+      </body>
     </html>
   );
 }

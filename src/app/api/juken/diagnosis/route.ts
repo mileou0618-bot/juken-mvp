@@ -12,6 +12,16 @@ function isValidAnswerValue(value: number) {
   return Number.isFinite(value) && value >= 1 && value <= 5;
 }
 
+function safeString(value: unknown) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "";
+  }
+}
+
 const DIAGNOSIS_TYPES: DiagnosisType[] = [
   "表面努力型",
   "理解不足型",
@@ -49,6 +59,7 @@ export async function POST(req: Request) {
   const diagnosisLabel = body.diagnosisLabel;
   const urgency = body.urgency as Urgency | undefined;
   const maxScore = body.maxScore;
+  const riskModel = body.riskModel;
 
   if (!isNonEmptyString(submittedAt))
     return NextResponse.json({ error: "submittedAt が不正です。" }, { status: 400 });
@@ -67,11 +78,12 @@ export async function POST(req: Request) {
 
   const normalizedAnswers: Record<string, number> = {};
   for (const q of JUKEN_DIAGNOSIS_QUESTIONS) {
-    const val = Number((answers as Record<string, unknown>)[q.id]);
+    const key = `q${q.id}`;
+    const val = Number((answers as Record<string, unknown>)[key]);
     if (!isValidAnswerValue(val)) {
       return NextResponse.json({ error: "未回答の質問があります。" }, { status: 400 });
     }
-    normalizedAnswers[q.id] = val;
+    normalizedAnswers[key] = val;
   }
 
   const normalizedScores = coerceScores(scores);
@@ -107,7 +119,8 @@ export async function POST(req: Request) {
 
   // q1..q18 (final)
   for (const q of JUKEN_DIAGNOSIS_QUESTIONS) {
-    flatPayload[q.id] = normalizedAnswers[q.id];
+    const key = `q${q.id}`;
+    flatPayload[key] = normalizedAnswers[key];
   }
 
   // Email derived fields (template-derived, requested names)
@@ -129,8 +142,18 @@ export async function POST(req: Request) {
   // Compatibility fields (older GAS may rely on these)
   flatPayload.parentName = flatPayload.name;
   flatPayload.school = flatPayload.cramSchool;
-  flatPayload.answers = JUKEN_DIAGNOSIS_QUESTIONS.map((q) => normalizedAnswers[q.id]);
+  flatPayload.answers = JUKEN_DIAGNOSIS_QUESTIONS.map((q) => normalizedAnswers[`q${q.id}`]);
   flatPayload.scores = normalizedScores;
+
+  // Optional: risk model fields (kept compatible; GAS/Sheet may ignore unless headers added).
+  if (riskModel && typeof riskModel === "object") {
+    const rm = riskModel as Record<string, unknown>;
+    flatPayload.riskModelType = typeof rm.type === "string" ? rm.type : "";
+    flatPayload.riskOverallRisk = Number(rm.overallRisk ?? 0);
+    flatPayload.riskDimensionRisks = safeString(rm.dimensionRisks);
+    flatPayload.riskTopRisks = safeString(rm.topRisks);
+    flatPayload.riskStructure = safeString(rm.structure);
+  }
 
   console.log("[juken] diagnosis payload", flatPayload);
 

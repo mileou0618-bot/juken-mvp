@@ -37,7 +37,7 @@ export default function HomePage() {
             name: "成績が上がることを保証しますか？",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "いいえ。成績保証ではありません。家庭学習上の課題を整理するための診断です。",
+              text: "いいえ。成績が上がることを保証するものではありません。家庭学習上の状態を整理するための診断です。",
             },
           },
           {
@@ -74,7 +74,7 @@ export default function HomePage() {
                 保護者向け学習管理システム。
               </p>
 
-              <Link href="/diagnosis" className="lp-cta" style={{ display: "inline-block" }}>
+              <Link href="/diagnosis" className="lp-cta">
                 無料診断をはじめる
               </Link>
             </div>

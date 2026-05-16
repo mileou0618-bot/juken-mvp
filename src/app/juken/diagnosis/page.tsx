@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { JUKEN_DIAGNOSIS_QUESTIONS } from "@/data/jukenDiagnosisQuestions";
 import { calculateJukenDiagnosis } from "@/lib/juken/calculateDiagnosis";
+import { buildDiagnosisResult } from "@/lib/jukenDiagnosisEngine";
 import type { Profile, StoredDiagnosisResult } from "@/lib/juken/types";
 import { JUKEN_RESULT_TEMPLATES } from "@/data/jukenResultTemplates";
 
@@ -51,11 +52,19 @@ export default function JukenDiagnosisPage() {
   const currentQuestions = useMemo(() => JUKEN_DIAGNOSIS_QUESTIONS.slice(start, end), [start, end]);
 
   const allAnswered = useMemo(
-    () => JUKEN_DIAGNOSIS_QUESTIONS.every((q) => Number(answers[q.id]) >= 1 && Number(answers[q.id]) <= 5),
+    () =>
+      JUKEN_DIAGNOSIS_QUESTIONS.every((q) => {
+        const key = `q${q.id}`;
+        return Number(answers[key]) >= 1 && Number(answers[key]) <= 5;
+      }),
     [answers]
   );
   const currentAnswered = useMemo(
-    () => currentQuestions.every((q) => Number(answers[q.id]) >= 1 && Number(answers[q.id]) <= 5),
+    () =>
+      currentQuestions.every((q) => {
+        const key = `q${q.id}`;
+        return Number(answers[key]) >= 1 && Number(answers[key]) <= 5;
+      }),
     [answers, currentQuestions]
   );
 
@@ -99,6 +108,7 @@ export default function JukenDiagnosisPage() {
     }
 
     const template = JUKEN_RESULT_TEMPLATES[diagnosis.diagnosisType];
+    const riskModel = buildDiagnosisResult(answers);
 
     const submittedAt = new Date().toISOString();
     const payload = {
@@ -107,7 +117,13 @@ export default function JukenDiagnosisPage() {
       email: profile.email.trim(),
       grade: profile.grade,
       cramSchool: (profile.cramSchool ?? "").trim(),
-      answers: Object.fromEntries(JUKEN_DIAGNOSIS_QUESTIONS.map((q) => [q.id, Number(answers[q.id])])),
+      answers: Object.fromEntries(
+        JUKEN_DIAGNOSIS_QUESTIONS.map((q) => {
+          const key = `q${q.id}`;
+          return [key, Number(answers[key])] as const;
+        })
+      ),
+      riskModel,
       scores: diagnosis.scores,
       diagnosisType: diagnosis.diagnosisType,
       diagnosisLabel: template.diagnosisLabel,
@@ -140,9 +156,15 @@ export default function JukenDiagnosisPage() {
         diagnosisType: payload.diagnosisType,
         urgency: payload.urgency,
         maxScore: payload.maxScore,
+        riskModel,
       };
 
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(stored));
+      // iOS Safari private mode may throw; ignore to avoid breaking the flow.
+      try {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(stored));
+      } catch {
+        // noop
+      }
       setSubmitting(false);
       router.push("/juken/result");
     }
@@ -209,6 +231,7 @@ export default function JukenDiagnosisPage() {
 
         {currentQuestions.map((q, idx) => {
           const qIndex = start + idx + 1;
+          const key = `q${q.id}`;
           return (
             <section className="q-card" key={q.id}>
               <h2 className="q-title">
@@ -216,12 +239,12 @@ export default function JukenDiagnosisPage() {
               </h2>
               <div className="choices" role="radiogroup" aria-label={q.text}>
                 {OPTIONS.map((o) => (
-                  <label className={Number(answers[q.id]) === o.value ? "choice selected" : "choice"} key={o.value}>
+                  <label className={Number(answers[key]) === o.value ? "choice selected" : "choice"} key={o.value}>
                     <input
                       type="radio"
-                      name={q.id}
-                      checked={Number(answers[q.id]) === o.value}
-                      onChange={() => setAnswers((a) => ({ ...a, [q.id]: o.value }))}
+                      name={key}
+                      checked={Number(answers[key]) === o.value}
+                      onChange={() => setAnswers((a) => ({ ...a, [key]: o.value }))}
                     />
                     <b>{o.label}</b>
                     <span>{o.text}</span>

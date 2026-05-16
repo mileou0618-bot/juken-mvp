@@ -2,7 +2,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "smoke:juken": "node --import tsx scripts/jukenDiagnosis.smoke.ts"
   },
   "dependencies": {
     "next": "15.5.9",

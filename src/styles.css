@@ -2248,8 +2248,27 @@ a.lp-cta[href="/juken/diagnosis"] {
   }
 
   .lp-hero-inner {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     grid-template-columns: 1fr;
     gap: 28px;
+  }
+
+  .lp-hero-copy,
+  .lp-hero-visual {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .lp-report-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .lp-pill {
@@ -2265,11 +2284,13 @@ a.lp-cta[href="/juken/diagnosis"] {
   }
 
   .lp-hero h1 {
-    font-size: 34px;
-    line-height: 1.35;
-    letter-spacing: -0.02em;
-    word-break: keep-all;
-    overflow-wrap: normal;
+    max-width: 100%;
+    font-size: 30px;
+    line-height: 1.38;
+    letter-spacing: -0.03em;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: anywhere;
   }
 
   .lp-lead {
@@ -2278,16 +2299,23 @@ a.lp-cta[href="/juken/diagnosis"] {
   }
 
   .lp-cta {
+    display: flex;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     height: 56px;
+    padding: 0 20px;
     font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
     border-radius: 16px;
     background: #b88a44;
     color: #ffffff;
-    display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
+    text-align: center;
+    margin: 0;
   }
 
   /* Diagnosis page container */
@@ -2467,6 +2495,246 @@ a.lp-cta[href="/juken/diagnosis"] {
 fieldset.q-card,
 .q-card legend {
   all: unset;
+}
+
+/* Phase 3.1: Risk radar chart + top risks (result page) */
+.result-type-block {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid #E5DED5;
+  border-radius: 16px;
+  background: #FFFDF9;
+}
+
+.result-type-label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #6E6A64;
+}
+
+.result-type-value {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2F4858;
+}
+
+.risk-balance {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.risk-radar {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.risk-radar svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.risk-radar-ring {
+  fill: none;
+  stroke: #E5DED5;
+  stroke-width: 1;
+}
+
+.risk-radar-axis {
+  stroke: #E5DED5;
+  stroke-width: 1;
+}
+
+.risk-radar-area {
+  fill: rgba(47, 72, 88, 0.12);
+  stroke: #2F4858;
+  stroke-width: 2;
+}
+
+.risk-radar-dot {
+  fill: #2F4858;
+}
+
+.risk-radar-label {
+  font-size: 11px;
+  fill: #5F5A52;
+}
+
+.risk-metrics {
+  width: 100%;
+  border: 1px solid #E5DED5;
+  border-radius: 16px;
+  background: #FFFDF9;
+  padding: 14px 14px;
+}
+
+.risk-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 0;
+  border-top: 1px solid #EEE7DE;
+}
+
+.risk-metric:first-child {
+  border-top: 0;
+}
+
+.risk-metric-label {
+  font-size: 13px;
+  color: #5F5A52;
+}
+
+.risk-metric-score {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: #2F4858;
+  font-weight: 600;
+}
+
+.risk-top {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #EEE7DE;
+}
+
+.risk-top-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2F4858;
+}
+
+.risk-top-tags {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.risk-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid #D8CCBC;
+  background: rgba(255, 253, 249, 0.72);
+  color: #2F4858;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 768px) {
+  .risk-balance {
+    grid-template-columns: 1fr;
+  }
+  .risk-radar {
+    max-width: 360px;
+  }
+  .risk-radar-label {
+    font-size: 10px;
+  }
+}
+
+/* Phase 5: Minimal trust footer + legal pages */
+.site-footer {
+  border-top: 1px solid #E5DED5;
+  background: rgba(247, 244, 238, 0.92);
+}
+
+.site-footer-inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 22px 20px 28px;
+  color: #5F5A52;
+}
+
+.site-footer-brand {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2F4858;
+}
+
+.site-footer-desc {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #6E6A64;
+}
+
+.site-footer-links {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.site-footer-links a {
+  color: #2F4858;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(47, 72, 88, 0.18);
+}
+
+.site-footer-links a:hover {
+  border-bottom-color: rgba(47, 72, 88, 0.34);
+}
+
+.site-footer-sep {
+  margin: 0 8px;
+  color: #9A9288;
+}
+
+.legal-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 44px 20px 72px;
+}
+
+.legal-title {
+  margin: 0 0 18px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #2F4858;
+  letter-spacing: -0.01em;
+}
+
+.legal-section {
+  margin-top: 22px;
+  padding: 18px 18px;
+  border: 1px solid #E5DED5;
+  border-radius: 18px;
+  background: #FFFDF9;
+}
+
+.legal-section h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #2F4858;
+}
+
+.legal-section p {
+  margin: 0;
+  color: #5F5A52;
+  line-height: 1.9;
+  font-size: 15px;
+}
+
+.legal-section ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: #5F5A52;
+  line-height: 1.9;
+  font-size: 15px;
+}
+
+.legal-muted {
+  color: #9A9288;
 }
 
 .q-title {
