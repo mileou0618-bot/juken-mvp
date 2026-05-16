@@ -7,8 +7,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/juken", "/juken/diagnosis"],
-        disallow: ["/juken/result"],
+        allow: ["/", "/diagnosis"],
+        disallow: ["/result"],
       },
     ],
     sitemap: new URL("/sitemap.xml", siteUrl).toString(),

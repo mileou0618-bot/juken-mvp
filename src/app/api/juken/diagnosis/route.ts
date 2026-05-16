@@ -113,11 +113,11 @@ export async function POST(req: Request) {
   // Email derived fields (template-derived, requested names)
   // mailDiagnosisLabel must equal diagnosisLabel (display name)
   flatPayload.mailDiagnosisLabel = String(flatPayload.diagnosisLabel);
-  flatPayload.mailCurrentTrend = template.currentTrend;
-  flatPayload.mailProblemSummary = template.problemSummary;
-  flatPayload.mailCauses = template.causes;
-  flatPayload.mailThisWeekActions = template.thisWeekActions;
-  flatPayload.mailParentMessage = template.parentMessage;
+  flatPayload.mailCurrentTrend = template.heroSummary;
+  flatPayload.mailProblemSummary = template.riskMessage;
+  flatPayload.mailCauses = template.currentSituation;
+  flatPayload.mailThisWeekActions = [template.thisWeekAction];
+  flatPayload.mailParentMessage = template.parentClosingMessage;
   flatPayload.disclaimer = JUKEN_DIAGNOSIS_DISCLAIMER;
 
   // Keep a compact text summary as well (optional but useful)

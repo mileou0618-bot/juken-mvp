@@ -14,13 +14,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
-      url: new URL("/juken", base).toString(),
-      lastModified,
-      changeFrequency: "weekly",
-      priority: 1,
-    },
-    {
-      url: new URL("/juken/diagnosis", base).toString(),
+      url: new URL("/diagnosis", base).toString(),
       lastModified,
       changeFrequency: "monthly",
       priority: 0.8,
