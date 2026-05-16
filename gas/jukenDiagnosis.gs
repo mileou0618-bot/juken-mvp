@@ -147,7 +147,6 @@ function ensureHeaders(sheet, headers) {
 }
 
 function sendDiagnosisMail(payload) {
-  var name = safeString(payload.name || payload.parentName) || "保護者";
   var diagnosisLabel = safeString(
     payload.mailDiagnosisLabel ||
       payload.diagnosisLabel ||
@@ -155,45 +154,92 @@ function sendDiagnosisMail(payload) {
       "診断結果"
   );
 
-  var currentTrend = safeString(payload.mailCurrentTrend);
-  var problemSummary = safeString(payload.mailProblemSummary);
-  var causes = formatList(payload.mailCauses);
-  var actions = formatList(payload.mailThisWeekActions);
-  var parentMessage = safeString(payload.mailParentMessage);
+  // Next.js側で mail* フィールドへマッピング済み：
+  // - mailCurrentTrend: heroSummary
+  // - mailCauses: currentSituation
+  // - mailThisWeekActions: [thisWeekAction]
+  var heroSummary = safeString(payload.mailCurrentTrend);
+  var situationItems = pickSituationItems(payload.mailCauses, 3);
+  var thisWeekAction = pickFirstAction(payload.mailThisWeekActions);
 
-  var subject = "【家庭学習管理診断】診断結果：" + diagnosisLabel;
+  var subject = "【診断結果】家庭学習の現在の状態をお送りします";
+
+  var situationText = situationItems.length
+    ? situationItems.join("、")
+    : "";
 
   var body =
-    name +
-    " 様\n\n" +
-    "この度は、家庭学習管理診断をご利用いただきありがとうございます。\n" +
-    "診断結果を以下にお送りします。\n\n" +
-    "■ 診断結果\n" +
-    diagnosisLabel +
-    "\n\n" +
-    "■ 現在の学習傾向\n" +
-    currentTrend +
-    "\n\n" +
-    "■ 今、起きている問題\n" +
-    problemSummary +
-    "\n\n" +
-    "■ 主な原因\n" +
-    causes +
-    "\n\n" +
-    "■ 今週まず見直すこと\n" +
-    actions +
-    "\n\n" +
-    "■ 保護者の方へ\n" +
-    parentMessage +
-    "\n\n" +
-    "※本診断は、家庭学習の状態を整理するための簡易診断です。\n" +
-    "医学的・心理的診断、または合格可能性の判定を行うものではありません。";
+    "この度は、家庭学習管理診断をご利用いただきありがとうございます。\n\n" +
+    "■診断結果\n" +
+    "（" + diagnosisLabel + "）\n\n" +
+    "今のご家庭では、\n" +
+    heroSummary +
+    "\n" +
+    "という状態が見え始めています。\n\n" +
+    (situationText
+      ? "特に、\n" +
+        situationText +
+        "\n" +
+        "が重なってくると、\n" +
+        "成績より先に、\n" +
+        "家庭内の負担が増えやすくなります。\n\n"
+      : "") +
+    "まず今週は、\n" +
+    thisWeekAction +
+    "\n" +
+    "から整理してみてください。\n\n" +
+    "必要であれば、\n" +
+    "LINEで現在の状況を整理できます。\n\n" +
+    "▼LINE相談\n" +
+    "https://lin.ee/pxHFmsI\n\n" +
+    "※本診断は、家庭学習の状態整理を目的とした簡易診断です。";
 
   MailApp.sendEmail({
     to: safeString(payload.email),
     subject: subject,
     body: body
   });
+}
+
+function pickSituationItems(value, maxItems) {
+  var items = [];
+
+  if (Array.isArray(value)) {
+    items = value.map(function (v) {
+      return safeString(v);
+    });
+  } else if (typeof value === "string") {
+    items = value.split("\n").map(function (line) {
+      return safeString(line);
+    });
+  } else if (value === null || value === undefined) {
+    items = [];
+  } else {
+    items = [safeString(value)];
+  }
+
+  items = items
+    .map(function (s) {
+      return safeString(s)
+        .replace(/^[・\-\u2022]\s*/, "")
+        .trim();
+    })
+    .filter(function (s) {
+      return s !== "";
+    });
+
+  return items.slice(0, maxItems || 3);
+}
+
+function pickFirstAction(value) {
+  if (Array.isArray(value)) {
+    for (var i = 0; i < value.length; i++) {
+      var s = safeString(value[i]).trim();
+      if (s) return s;
+    }
+  }
+  var s2 = safeString(value).trim();
+  return s2 || "まずは、無理のない範囲で「今いちばん苦しくなっているところ」から見直してみてください。";
 }
 
 function formatList(value) {
@@ -237,4 +283,3 @@ function jsonResponse(obj) {
     ContentService.MimeType.JSON
   );
 }
-

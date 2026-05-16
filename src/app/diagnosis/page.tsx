@@ -72,7 +72,6 @@ export default function JukenDiagnosisPage() {
   );
 
   const validateProfile = () => {
-    if (!profile.name.trim()) return "保護者のお名前を入力してください。";
     if (!profile.email.trim()) return "メールアドレスを入力してください。";
     if (!profile.grade) return "お子さまの学年を選択してください。";
     return "";
@@ -195,11 +194,11 @@ export default function JukenDiagnosisPage() {
           <h2 className="q-title">基本情報</h2>
           <div className="info-card" style={{ marginTop: 14 }}>
             <label>
-              保護者のお名前
+              お名前（任意）
               <input
                 value={profile.name}
                 onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
-                placeholder="例: 山田 太郎"
+                placeholder="例：山田"
               />
             </label>
             <label>
