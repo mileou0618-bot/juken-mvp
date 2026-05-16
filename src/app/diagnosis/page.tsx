@@ -147,7 +147,7 @@ export default function JukenDiagnosisPage() {
 
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(stored));
       setSubmitting(false);
-      router.push("/result");
+      router.push("/juken/result");
     }
   };
 
@@ -165,12 +165,12 @@ export default function JukenDiagnosisPage() {
       </div>
 
       <main className="question-main">
-        <p className="blue">{isSp ? `進捗 ${end} / 18` : "無料・18問・約3分"}</p>
-        <h1>家庭学習の様子について</h1>
-        <p className="desc">基本情報と18問の回答をもとに、家庭学習の管理タイプを整理します。</p>
+        <p className="blue">18問・約3分</p>
+        <h1>ご家庭での学習状況を教えてください</h1>
+        <p className="desc">正解・不正解はありません。ふだんの様子に近いものを選んでください。</p>
 
         <section className="q-card" aria-label="基本情報">
-          <legend>基本情報</legend>
+          <h2 className="q-title">基本情報</h2>
           <div className="info-card" style={{ marginTop: 14 }}>
             <label>
               保護者のお名前
@@ -213,11 +213,11 @@ export default function JukenDiagnosisPage() {
         {currentQuestions.map((q, idx) => {
           const qIndex = start + idx + 1;
           return (
-            <fieldset className="q-card" key={q.id}>
-              <legend>
+            <section className="q-card" key={q.id}>
+              <h2 className="q-title">
                 Q{qIndex}. {q.text}
-              </legend>
-              <div className="choices">
+              </h2>
+              <div className="choices" role="radiogroup" aria-label={q.text}>
                 {OPTIONS.map((o) => (
                   <label className={Number(answers[q.id]) === o.value ? "choice selected" : "choice"} key={o.value}>
                     <input
@@ -231,7 +231,7 @@ export default function JukenDiagnosisPage() {
                   </label>
                 ))}
               </div>
-            </fieldset>
+            </section>
           );
         })}
       </main>
@@ -255,4 +255,3 @@ export default function JukenDiagnosisPage() {
     </div>
   );
 }
-

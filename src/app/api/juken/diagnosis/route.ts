@@ -113,15 +113,18 @@ export async function POST(req: Request) {
   // Email derived fields (template-derived, requested names)
   // mailDiagnosisLabel must equal diagnosisLabel (display name)
   flatPayload.mailDiagnosisLabel = String(flatPayload.diagnosisLabel);
-  flatPayload.mailCurrentTrend = template.heroSummary;
-  flatPayload.mailProblemSummary = template.riskMessage;
-  flatPayload.mailCauses = template.currentSituation;
-  flatPayload.mailThisWeekActions = [template.thisWeekAction];
-  flatPayload.mailParentMessage = template.parentClosingMessage;
+  const compactLines = (lines: unknown) =>
+    Array.isArray(lines) ? lines.map((v) => String(v)).filter((v) => v.trim().length > 0) : [];
+
+  flatPayload.mailCurrentTrend = template.typeLine;
+  flatPayload.mailProblemSummary = compactLines([...template.notEffortLines, "", ...template.continueLines]).join("\n");
+  flatPayload.mailCauses = compactLines(template.notEffortLines);
+  flatPayload.mailThisWeekActions = compactLines(template.continueLines);
+  flatPayload.mailParentMessage = [template.lineCtaTitle, ...template.lineCtaBody].join("\n");
   flatPayload.disclaimer = JUKEN_DIAGNOSIS_DISCLAIMER;
 
   // Keep a compact text summary as well (optional but useful)
-  flatPayload.emailSummary = template.emailSummary;
+  flatPayload.emailSummary = compactLines([...template.notEffortLines, "", ...template.continueLines]).join(" ");
 
   // Compatibility fields (older GAS may rely on these)
   flatPayload.parentName = flatPayload.name;
