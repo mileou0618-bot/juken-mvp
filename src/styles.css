@@ -3058,7 +3058,7 @@ fieldset.q-card,
 
 .cn-wechat-qr {
   margin-top: 14px;
-  max-width: 220px;
+  max-width: 240px;
 }
 
 .cn-wechat-qr img {
@@ -3128,7 +3128,7 @@ fieldset.q-card,
 
 @media (max-width: 768px) {
   .cn-wechat-qr {
-    max-width: 200px;
+    max-width: 220px;
   }
 
   .cn-wechat-actions {
@@ -3149,6 +3149,22 @@ fieldset.q-card,
 .cn-page .risk-radar-label {
   font-weight: 450;
   letter-spacing: 0;
+}
+
+/* CN contact page: single CTA layout */
+.cn-contact-card {
+  text-align: center;
+}
+
+.cn-contact-qr {
+  margin: 4px auto 0;
+}
+
+.cn-contact-wechat-id {
+  margin-top: 14px;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--color-text-main, #2f4858);
 }
 
 @media (max-width: 768px) {

@@ -1,5 +1,5 @@
 import "./globals.css";
-import SiteFooter from "@/components/SiteFooter";
+import Footer from "@/components/Footer";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://judanjapan.jp";
 
@@ -36,7 +36,7 @@ export default function RootLayout({ children }) {
     <html lang="ja">
       <body>
         {children}
-        <SiteFooter />
+        <Footer />
       </body>
     </html>
   );

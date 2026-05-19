@@ -76,7 +76,6 @@ function coerceScores(scores: unknown): Scores {
 }
 
 export async function POST(req: Request) {
-  console.log("[juken] diagnosis request received");
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "リクエスト形式が不正です。" }, { status: 400 });
@@ -216,18 +215,13 @@ export async function POST(req: Request) {
   flatPayload.answersJson = safeString(normalizedAnswers);
   flatPayload.thisWeekAction = normalizeMailLine(display.mailNextAction);
 
-  console.log("[juken] diagnosis payload", flatPayload);
-
   try {
-    console.log("[juken] sending to GAS");
     const response = await fetch(APPS_SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(flatPayload),
     });
-    console.log("[juken] GAS status:", response.status);
     const responseText = await response.text().catch(() => "");
-    console.log("[juken] GAS body:", responseText);
     const gasJson = (() => {
       try {
         return JSON.parse(responseText) as Record<string, unknown>;
@@ -235,14 +229,6 @@ export async function POST(req: Request) {
         return null;
       }
     })();
-    if (gasJson) {
-      console.log("[juken] GAS parsed:", {
-        sheetOk: gasJson.sheetOk,
-        sheetError: gasJson.sheetError,
-        mailOk: gasJson.mailOk,
-        mailError: gasJson.mailError,
-      });
-    }
     return NextResponse.json(
       {
         ok: true,

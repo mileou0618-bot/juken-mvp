@@ -101,17 +101,6 @@ export default function JukenResultPage() {
   const diagnosisId = (data && typeof (data as any).diagnosisId === "string" ? String((data as any).diagnosisId) : "").trim();
   const display = useMemo(() => (riskModel ? getResultDisplay(String((riskModel as any).type ?? "")) : null), [riskModel]);
 
-  useEffect(() => {
-    if (!riskModel || !display) return;
-    // Debug only (console): ensure result page uses the same map as API/mail.
-    // eslint-disable-next-line no-console
-    console.log("[juken][result] internalType:", (riskModel as any).type);
-    // eslint-disable-next-line no-console
-    console.log("[juken][result] title:", display.resultTitle);
-    // eslint-disable-next-line no-console
-    console.log("[juken][result] currentState:", display.currentState);
-  }, [riskModel, display]);
-
   if (!data || !riskModel || !display) {
     return (
       <div className="form-page">
