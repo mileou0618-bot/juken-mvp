@@ -201,13 +201,33 @@ export default function JukenDiagnosisPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      const apiJson = (await res.json().catch(() => null)) as
+        | { error?: string; gas?: { sheetOk?: boolean; mailOk?: boolean; sheetError?: string; mailError?: string } | null }
+        | null;
+
       if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as { error?: string } | null;
-        setSubmitError(data?.error || "結果の保存に失敗しました。");
+        setSubmitError(apiJson?.error || "結果の保存に失敗しました。");
+        setSubmitting(false);
+        return;
       }
-    } catch {
-      setSubmitError("結果の保存に失敗しました。");
-    } finally {
+
+      const sheetOk = apiJson?.gas?.sheetOk;
+      const mailOk = apiJson?.gas?.mailOk;
+      const hasAnyOk = sheetOk === true || mailOk === true;
+      if (sheetOk === false && mailOk === false) {
+        setSubmitError(apiJson?.gas?.sheetError || apiJson?.gas?.mailError || "結果の保存に失敗しました。");
+        setSubmitting(false);
+        return;
+      }
+
+      // If GAS didn't return a parseable JSON, still allow the flow (web result is local),
+      // but if it DID return and both failed, we already returned above.
+      if (!hasAnyOk && apiJson?.gas) {
+        setSubmitError(apiJson?.gas?.sheetError || apiJson?.gas?.mailError || "結果の保存に失敗しました。");
+        setSubmitting(false);
+        return;
+      }
+
       const stored: StoredDiagnosisResult = {
         profile: {
           name: payload.name,
@@ -223,14 +243,17 @@ export default function JukenDiagnosisPage() {
         riskModel,
       };
 
-      // iOS Safari private mode may throw; ignore to avoid breaking the flow.
       try {
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(stored));
       } catch {
         // noop
       }
+
       setSubmitting(false);
       router.push("/juken/result");
+    } catch {
+      setSubmitError("結果の保存に失敗しました。");
+      setSubmitting(false);
     }
   };
 
