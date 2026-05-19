@@ -68,7 +68,7 @@ export function buildHeroTitle(model: RiskModelDiagnosisResult): string {
       case "autonomy":
         return "自分で整理して進める場面が少なく、\n学習が止まりやすい状態です";
       case "homework_load":
-        return "宿題の回し方が厳しくなり、\n余白が減っています";
+        return "宿題の回し方が厳しくなり、\n家庭側の負担が増え始めています";
       case "mental_load":
         return "家庭内の緊張や疲れが残りやすく、\n学習が重くなっています";
       default:
@@ -87,10 +87,10 @@ function topRiskSentence(topRisks: RiskModelDiagnosisResult["topRisks"]) {
     .slice(0, 2);
 
   if (labels.length >= 2) {
-    return `今回の回答では、特に\n『${labels[0]}』と『${labels[1]}』の傾向が強く出ています。`;
+    return `今回の回答では、特に\n『${labels[0]}』と『${labels[1]}』が目立っています。`;
   }
   if (labels.length === 1) {
-    return `今回の回答では、特に\n『${labels[0]}』の傾向が強く出ています。`;
+    return `今回の回答では、特に\n『${labels[0]}』が目立っています。`;
   }
   return "今回の回答では、いくつかの項目に傾向が出ています。";
 }
@@ -153,7 +153,7 @@ export function buildNowHappeningCopy(model: RiskModelDiagnosisResult): string[]
     return lines;
   }
 
-  lines.push(`この状態は、診断上は『${model.type}』に近い傾向です。`);
+  lines.push(`全体としては、『${model.type}』に近い状態です。`);
   return lines;
 }
 
@@ -215,7 +215,7 @@ export function buildContinueCopy(model: RiskModelDiagnosisResult): string[] {
   }
 
   // Gentle close (no fear wording)
-  lines.push("先に崩れやすい部分を1つだけでも言葉にしておくと、");
+  lines.push("先に苦しくなりやすいところを1つだけでも言葉にしておくと、");
   lines.push("テスト前だけ慌てて立て直す流れになりにくくなります。");
   return lines;
 }

@@ -3,6 +3,7 @@ import { APPS_SCRIPT_URL } from "@/lib/juken/appsScript";
 import { JUKEN_DIAGNOSIS_QUESTIONS } from "@/data/jukenDiagnosisQuestions";
 import { JUKEN_RESULT_TEMPLATES, JUKEN_DIAGNOSIS_DISCLAIMER } from "@/data/jukenResultTemplates";
 import type { DiagnosisType, Scores, Urgency } from "@/lib/juken/types";
+import { getResultDisplay } from "@/lib/juken/resultDisplayMap";
 
 function isNonEmptyString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
@@ -10,6 +11,15 @@ function isNonEmptyString(value: unknown) {
 
 function isValidAnswerValue(value: number) {
   return Number.isFinite(value) && value >= 1 && value <= 5;
+}
+
+function normalizeMailLine(text: unknown) {
+  return String(text ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([、。])/g, "$1")
+    .trim();
 }
 
 function safeString(value: unknown) {
@@ -20,6 +30,18 @@ function safeString(value: unknown) {
   } catch {
     return "";
   }
+}
+
+type RiskModelPayload = {
+  type?: unknown;
+  topRisks?: unknown;
+  dimensionRisks?: unknown;
+  overallRisk?: unknown;
+  structure?: unknown;
+};
+
+function compactLines(lines: unknown) {
+  return Array.isArray(lines) ? lines.map((v) => String(v)).filter((v) => v.trim().length > 0) : [];
 }
 
 const DIAGNOSIS_TYPES: DiagnosisType[] = [
@@ -43,6 +65,7 @@ function coerceScores(scores: unknown): Scores {
 }
 
 export async function POST(req: Request) {
+  console.log("[juken] diagnosis request received");
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "リクエスト形式が不正です。" }, { status: 400 });
@@ -63,7 +86,6 @@ export async function POST(req: Request) {
 
   if (!isNonEmptyString(submittedAt))
     return NextResponse.json({ error: "submittedAt が不正です。" }, { status: 400 });
-  if (!isNonEmptyString(name)) return NextResponse.json({ error: "お名前を入力してください。" }, { status: 400 });
   if (!isNonEmptyString(email))
     return NextResponse.json({ error: "メールアドレスを入力してください。" }, { status: 400 });
   if (!isNonEmptyString(grade)) return NextResponse.json({ error: "学年を選択してください。" }, { status: 400 });
@@ -91,12 +113,15 @@ export async function POST(req: Request) {
 
   const flatPayload: Record<string, unknown> = {
     submittedAt,
-    name: String(name).trim(),
+    // name is optional
+    name: typeof name === "string" ? name.trim() : "",
     email: String(email).trim(),
     grade: String(grade),
     cramSchool: typeof cramSchool === "string" ? cramSchool : "",
     diagnosisType,
-    diagnosisLabel: isNonEmptyString(diagnosisLabel) ? String(diagnosisLabel) : template.diagnosisLabel,
+    // Avoid leaking legacy display labels (e.g., 優先順位迷子) into mail/Sheet.
+    // Keep the column but store an empty string when not explicitly provided.
+    diagnosisLabel: isNonEmptyString(diagnosisLabel) ? String(diagnosisLabel) : "",
     urgency: urgency ?? "低",
     maxScore: Number(maxScore ?? 0),
 
@@ -123,21 +148,25 @@ export async function POST(req: Request) {
     flatPayload[key] = normalizedAnswers[key];
   }
 
-  // Email derived fields (template-derived, requested names)
-  // mailDiagnosisLabel must equal diagnosisLabel (display name)
-  flatPayload.mailDiagnosisLabel = String(flatPayload.diagnosisLabel);
-  const compactLines = (lines: unknown) =>
-    Array.isArray(lines) ? lines.map((v) => String(v)).filter((v) => v.trim().length > 0) : [];
+  // Email derived fields (type-driven display; keep names for GAS compatibility)
+  // NOTE: Internal type names must not be shown to end users. GAS email uses mail* fields.
+  const rm = (riskModel && typeof riskModel === "object" ? (riskModel as RiskModelPayload) : null) as RiskModelPayload | null;
+  const rmType = rm && typeof rm.type === "string" ? rm.type : "";
+  const display = getResultDisplay(rmType);
 
-  flatPayload.mailCurrentTrend = template.typeLine;
-  flatPayload.mailProblemSummary = compactLines([...template.notEffortLines, "", ...template.continueLines]).join("\n");
-  flatPayload.mailCauses = compactLines(template.notEffortLines);
-  flatPayload.mailThisWeekActions = compactLines(template.continueLines);
-  flatPayload.mailParentMessage = [template.lineCtaTitle, ...template.lineCtaBody].join("\n");
+  // Do not expose internal type names in email output.
+  flatPayload.mailDiagnosisLabel = "";
+
+  // Use the type-to-display map for mail content.
+  flatPayload.mailCurrentTrend = normalizeMailLine(display.mailState);
+  flatPayload.mailProblemSummary = "";
+  // Send as newline-joined text (not JSON array) to be robust against older GAS templates.
+  flatPayload.mailCauses = display.mailPoints.join("\n");
+  flatPayload.mailThisWeekActions = normalizeMailLine(display.mailNextAction);
+  flatPayload.mailParentMessage = "必要であれば、LINEで現在の状況を整理できます。";
   flatPayload.disclaimer = JUKEN_DIAGNOSIS_DISCLAIMER;
 
-  // Keep a compact text summary as well (optional but useful)
-  flatPayload.emailSummary = compactLines([...template.notEffortLines, "", ...template.continueLines]).join(" ");
+  flatPayload.emailSummary = compactLines([flatPayload.mailCurrentTrend, flatPayload.mailProblemSummary]).join(" ");
 
   // Compatibility fields (older GAS may rely on these)
   flatPayload.parentName = flatPayload.name;
@@ -158,13 +187,40 @@ export async function POST(req: Request) {
   console.log("[juken] diagnosis payload", flatPayload);
 
   try {
-    await fetch(APPS_SCRIPT_URL, {
+    console.log("[juken] sending to GAS");
+    const response = await fetch(APPS_SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(flatPayload),
     });
-    return NextResponse.json({ ok: true }, { status: 200 });
-  } catch {
+    console.log("[juken] GAS status:", response.status);
+    const responseText = await response.text().catch(() => "");
+    console.log("[juken] GAS body:", responseText);
+    const gasJson = (() => {
+      try {
+        return JSON.parse(responseText) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    })();
+    if (gasJson) {
+      console.log("[juken] GAS parsed:", {
+        sheetOk: gasJson.sheetOk,
+        sheetError: gasJson.sheetError,
+        mailOk: gasJson.mailOk,
+        mailError: gasJson.mailError,
+      });
+    }
+    return NextResponse.json(
+      {
+        ok: true,
+        gas: gasJson,
+        gasStatus: response.status,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("[juken] API error:", error);
     return NextResponse.json({ error: "結果の保存に失敗しました。" }, { status: 502 });
   }
 }

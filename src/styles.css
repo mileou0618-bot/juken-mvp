@@ -278,6 +278,7 @@ select {
 .bottom-nav {
   border-top: 1px solid var(--border);
   background: rgba(251, 250, 247, 0.96);
+  z-index: 50;
 }
 
 .bottom-nav button {
@@ -618,6 +619,7 @@ select {
 .bottom-nav {
   background: rgba(247, 244, 238, 0.96);
   border-top: 1px solid var(--color-border);
+  z-index: 50;
 }
 
 .bottom-nav button {
@@ -791,6 +793,20 @@ select {
   font-size: 12px;
 }
 
+.result-section-kicker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(241, 226, 204, 0.75);
+  color: #8a642f;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  margin-bottom: 12px;
+}
+
 .result-title {
   margin: 14px 0 0;
   font-size: 32px;
@@ -852,9 +868,32 @@ select {
   background: var(--color-card-soft);
 }
 
-.result-fixed {
-  padding-top: 26px;
-  padding-bottom: 26px;
+.result-now {
+  border-left: 4px solid rgba(184, 138, 68, 0.55);
+}
+
+.result-now .result-section-kicker {
+  background: rgba(232, 238, 240, 0.70);
+  color: var(--color-text-main);
+}
+
+.result-risk .result-section-kicker {
+  background: rgba(201, 185, 154, 0.22);
+  color: var(--color-text-main);
+}
+
+.result-module.result-cta {
+  text-align: center;
+}
+
+.result-module.result-cta .result-cta-body {
+  max-width: 680px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.result-module.result-cta .result-btn-row {
+  justify-content: center;
 }
 
 .result-cta {
@@ -1903,6 +1942,13 @@ a.lp-cta[href="/juken/diagnosis"] {
   font-weight: 500;
 }
 
+.result-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
 .result-text {
   max-width: 760px;
   font-size: 17px;
@@ -1934,6 +1980,17 @@ a.lp-cta[href="/juken/diagnosis"] {
 .result-line-btn {
   min-width: 260px;
   height: 56px;
+}
+
+.result-page .result-line-btn {
+  background: #2f4868;
+  border-color: #2f4868;
+  color: #ffffff;
+}
+
+.result-page .result-line-btn:hover {
+  background: #3e5879;
+  border-color: #3e5879;
 }
 
 @media (max-width: 767px) {

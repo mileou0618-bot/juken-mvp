@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { StoredDiagnosisResult } from "@/lib/juken/types";
-import { JUKEN_RESULT_TEMPLATES, JUKEN_DIAGNOSIS_DISCLAIMER } from "@/data/jukenResultTemplates";
+import { JUKEN_DIAGNOSIS_DISCLAIMER } from "@/data/jukenResultTemplates";
 import RiskRadarChart from "@/components/juken/RiskRadarChart";
-import { buildContinueCopy, buildHeroTitle, buildNowHappeningCopy } from "@/lib/juken/riskModelCopy";
+import { getResultDisplay } from "@/lib/juken/resultDisplayMap";
 
 const SESSION_KEY = "jukenDiagnosisResult";
 
@@ -66,6 +66,16 @@ function Paragraphs({ lines }: { lines: string[] }) {
   );
 }
 
+function ClampedParagraph({ lines }: { lines: string[] }) {
+  const cleaned = (lines ?? []).map((l) => String(l).trim()).filter((l) => l.length > 0);
+  const text = cleaned.join(" ").trim();
+  return (
+    <div className="result-paragraphs">
+      <p className="result-paragraph result-clamp-3">{text}</p>
+    </div>
+  );
+}
+
 export default function JukenResultPage() {
   const [data, setData] = useState<StoredDiagnosisResult | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -87,23 +97,27 @@ export default function JukenResultPage() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  const template = useMemo(() => {
-    if (!data) return null;
-    return JUKEN_RESULT_TEMPLATES[data.diagnosisType];
-  }, [data]);
-
   const riskModel = data?.riskModel ?? null;
-  const nowCopy = useMemo(() => (riskModel ? buildNowHappeningCopy(riskModel) : null), [riskModel]);
-  const continueCopy = useMemo(() => (riskModel ? buildContinueCopy(riskModel) : null), [riskModel]);
-  const heroTitle = useMemo(() => (riskModel ? buildHeroTitle(riskModel) : null), [riskModel]);
+  const display = useMemo(() => (riskModel ? getResultDisplay(String((riskModel as any).type ?? "")) : null), [riskModel]);
 
-  if (!data || !template) {
+  useEffect(() => {
+    if (!riskModel || !display) return;
+    // Debug only (console): ensure result page uses the same map as API/mail.
+    // eslint-disable-next-line no-console
+    console.log("[juken][result] internalType:", (riskModel as any).type);
+    // eslint-disable-next-line no-console
+    console.log("[juken][result] title:", display.resultTitle);
+    // eslint-disable-next-line no-console
+    console.log("[juken][result] currentState:", display.currentState);
+  }, [riskModel, display]);
+
+  if (!data || !riskModel || !display) {
     return (
       <div className="form-page">
         <main className="done-page">
           <div className="done-card">
-            <h1>診断データが確認できませんでした。</h1>
-            <p>お手数ですが、もう一度最初から診断をお願いいたします。</p>
+            <h1>診断結果を表示できませんでした。</h1>
+            <p>お手数ですが、もう一度診断をお試しください。</p>
             <Link href="/juken/diagnosis" className="cta light" style={{ display: "inline-block" }}>
               診断ページへ戻る
             </Link>
@@ -120,18 +134,14 @@ export default function JukenResultPage() {
         <section className="result-module">
           <div className="result-kicker">診断結果</div>
           <h1 className="result-title">
-            <ResponsiveTitle text={heroTitle ?? template.realityTitle} isMobile={isMobile} />
+            <ResponsiveTitle text={display.resultTitle as string} isMobile={isMobile} />
           </h1>
-          <div className="result-type-block">
-            <div className="result-type-label">診断上の分類</div>
-            <div className="result-type-value">{riskModel?.type ?? template.typeLine}</div>
-          </div>
         </section>
 
         {/* Module 1.5: Risk balance (optional) */}
         {riskModel?.dimensionRisks ? (
           <section className="result-module">
-            <h2 className="result-h2">あなたのリスクバランス</h2>
+            <h2 className="result-h2">今の家庭学習の偏り</h2>
             <div className="risk-balance">
               <RiskRadarChart dimensionRisks={riskModel.dimensionRisks} />
 
@@ -182,38 +192,25 @@ export default function JukenResultPage() {
         ) : null}
 
         {/* Module 2: What’s happening */}
-        <section className="result-module">
+        <section className="result-module result-now">
+          <div className="result-section-kicker">現在の整理</div>
           <h2 className="result-h2">いま起きていること</h2>
-          <Paragraphs lines={nowCopy ?? template.notEffortLines} />
+          <ClampedParagraph lines={(display.currentState ? display.currentState.split("\n") : []) as string[]} />
         </section>
 
         {/* Module 3: Risks */}
         <section className="result-module result-risk">
+          <div className="result-section-kicker">このままの場合</div>
           <h2 className="result-h2">このまま続くと、起きやすいこと</h2>
-          <Paragraphs lines={continueCopy ?? template.continueLines} />
+          <ClampedParagraph lines={(display.futureRisk ? display.futureRisk.split("\n") : []) as string[]} />
         </section>
 
-        {/* Module 4: Fixed explanation */}
-        <section className="result-module result-fixed">
-          <h2 className="result-h2">家庭だけで抱え込まなくてよい理由</h2>
-          <p className="result-text">
-            家庭学習の問題は、お子さまの努力不足だけで起きるものではありません。
-            <br />
-            塾の宿題量、復習のタイミング、親の声かけ、週間スケジュールが少しずつずれることで、家庭の中だけでは整理しにくくなります。
-          </p>
-          <div style={{ height: 12 }} />
-          <p className="result-text">
-            この診断では、まず今の状態を言葉にして、どこから整えるべきかを見つけることを目的にしています。
-          </p>
-        </section>
-
-        {/* Module 5: LINE CTA */}
+        {/* Module 4: LINE CTA */}
         <section className="result-module result-cta">
-          <h2 className="result-cta-title">
-            「このままで大丈夫かな」と思ったら、今の状態を一度整理してみてください。
-          </h2>
+          <div className="result-section-kicker">次にできること</div>
+          <h2 className="result-cta-title">家庭学習の進め方を整理してみませんか？</h2>
           <div className="result-cta-body">
-            <p className="result-text">塾・学年・現在の困りごとをもとに、家庭学習の回し方を一緒に整理します。</p>
+            <p className="result-text">今の状況をもとに、どこから整えるべきか確認できます。</p>
           </div>
           <div className="result-btn-row">
             <a className="result-line-btn" href="https://lin.ee/pxHFmsI" target="_blank" rel="noopener noreferrer">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { JUKEN_DIAGNOSIS_QUESTIONS } from "@/data/jukenDiagnosisQuestions";
 import { calculateJukenDiagnosis } from "@/lib/juken/calculateDiagnosis";
@@ -28,6 +28,7 @@ export default function JukenDiagnosisPage() {
   const [isSp, setIsSp] = useState(false);
   const [step, setStep] = useState(0);
   const perStep = isSp ? 4 : 18;
+  const emailRef = useRef<HTMLInputElement | null>(null);
 
   const [profile, setProfile] = useState<Profile>({
     name: "",
@@ -77,25 +78,87 @@ export default function JukenDiagnosisPage() {
     return "";
   };
 
+  const scrollToEmail = () => {
+    const el = emailRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => el.focus(), 200);
+  };
+
+  const scrollToQuestion = (questionId: number) => {
+    const el = document.getElementById(`question-${questionId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => {
+      (el as HTMLElement).focus?.();
+    }, 200);
+  };
+
+  const scrollToStepFirstQuestion = (nextStep: number) => {
+    const first = JUKEN_DIAGNOSIS_QUESTIONS[nextStep * perStep];
+    if (!first) return;
+
+    const run = () => {
+      const el = document.getElementById(`question-${first.id}`);
+      if (!el) return false;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.setTimeout(() => (el as HTMLElement).focus?.(), 200);
+      return true;
+    };
+
+    window.setTimeout(() => {
+      if (run()) return;
+      window.setTimeout(() => {
+        run();
+      }, 200);
+    }, 120);
+  };
+
   const goNext = () => {
     const message = validateProfile();
-    if (message) return alert(message);
-    if (!currentAnswered) return alert("このページの質問にすべて回答してください。");
+    if (message) {
+      alert(message);
+      if (message.includes("メールアドレス")) scrollToEmail();
+      return;
+    }
+    if (!currentAnswered) {
+      alert("このページの質問にすべて回答してください。");
+      const firstMissing = currentQuestions.find((q) => {
+        const key = `q${q.id}`;
+        return !(Number(answers[key]) >= 1 && Number(answers[key]) <= 5);
+      });
+      if (firstMissing) scrollToQuestion(firstMissing.id);
+      return;
+    }
     if (end >= totalQuestions) return;
-    setStep((s) => s + 1);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const nextStep = step + 1;
+    setStep(nextStep);
+    if (isSp) scrollToStepFirstQuestion(nextStep);
   };
 
   const goPrev = () => {
     if (step === 0) return router.push("/");
-    setStep((s) => Math.max(0, s - 1));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const nextStep = Math.max(0, step - 1);
+    setStep(nextStep);
+    if (isSp) scrollToStepFirstQuestion(nextStep);
   };
 
   const submit = async () => {
     const message = validateProfile();
-    if (message) return alert(message);
-    if (!allAnswered) return alert("未回答の質問があります。すべて回答してください。");
+    if (message) {
+      alert(message);
+      if (message.includes("メールアドレス")) scrollToEmail();
+      return;
+    }
+    if (!allAnswered) {
+      alert("未回答の質問があります。すべて回答してください。");
+      const firstMissing = JUKEN_DIAGNOSIS_QUESTIONS.find((q) => {
+        const key = `q${q.id}`;
+        return !(Number(answers[key]) >= 1 && Number(answers[key]) <= 5);
+      });
+      if (firstMissing) scrollToQuestion(firstMissing.id);
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError("");
@@ -128,7 +191,9 @@ export default function JukenDiagnosisPage() {
       riskModel,
       scores: diagnosis.scores,
       diagnosisType: diagnosis.diagnosisType,
-      diagnosisLabel: template.diagnosisLabel,
+      // Do not send legacy display labels to API/GAS/Sheet.
+      // The unified user-facing copy is derived from riskModel.type via resultDisplayMap.
+      diagnosisLabel: "",
       urgency: diagnosis.urgency,
       maxScore: diagnosis.maxScore,
     };
@@ -188,7 +253,11 @@ export default function JukenDiagnosisPage() {
       <main className="question-main">
         <p className="blue">18問・約3分</p>
         <h1>ご家庭での学習状況を教えてください</h1>
-        <p className="desc">正解・不正解はありません。ふだんの様子に近いものを選んでください。</p>
+        <p className="desc">
+          正解・不正解はありません。ふだんの様子に近いものを選んでください。
+          <br />
+          お子さまや保護者の方を評価するものではなく、今の家庭学習の回り方を確認するためのチェックです。
+        </p>
 
         <section className="q-card" aria-label="基本情報">
           <h2 className="q-title">基本情報</h2>
@@ -207,6 +276,7 @@ export default function JukenDiagnosisPage() {
                 value={profile.email}
                 onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))}
                 placeholder="example@email.com"
+                ref={emailRef}
               />
             </label>
             <label>
@@ -235,7 +305,7 @@ export default function JukenDiagnosisPage() {
           const qIndex = start + idx + 1;
           const key = `q${q.id}`;
           return (
-            <section className="q-card" key={q.id}>
+            <section className="q-card" key={q.id} id={`question-${q.id}`} tabIndex={-1}>
               <h2 className="q-title">
                 Q{qIndex}. {q.text}
               </h2>
