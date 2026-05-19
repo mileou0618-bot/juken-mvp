@@ -3154,10 +3154,31 @@ fieldset.q-card,
 /* CN contact page: single CTA layout */
 .cn-contact-card {
   text-align: center;
+  margin-bottom: 22px;
+}
+
+.cn-contact-qrWrap {
+  max-width: 320px;
+  margin: 10px auto 0;
+  padding: 16px;
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid rgba(229, 222, 213, 0.9);
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .cn-contact-qr {
-  margin: 4px auto 0;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+.cn-contact-qrImg {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
 }
 
 .cn-contact-wechat-id {
@@ -3165,6 +3186,32 @@ fieldset.q-card,
   font-size: 16px;
   font-weight: 650;
   color: var(--color-text-main, #2f4858);
+}
+
+.cn-contact-card .cn-wechat-btn-primary {
+  margin: 14px auto 0;
+  width: auto;
+  min-width: 220px;
+  max-width: 280px;
+  border-radius: 16px;
+  padding: 12px 18px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .cn-contact-card {
+    margin-bottom: 28px;
+  }
+
+  .cn-contact-qr {
+    max-width: min(260px, 80vw);
+  }
+
+  .cn-contact-card .cn-wechat-btn-primary {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 768px) {

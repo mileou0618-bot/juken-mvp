@@ -68,8 +68,10 @@ export default function CnContactPage() {
       </p>
 
       <section className="legal-section cn-contact-card">
-        <div className="cn-contact-qr">
-          <Image src="/wechat-qr.jpg" alt="微信二维码" width={520} height={520} />
+        <div className="cn-contact-qrWrap" aria-label="微信二维码">
+          <div className="cn-contact-qr">
+            <Image className="cn-contact-qrImg" src="/wechat-qr.jpg" alt="微信二维码" width={520} height={520} />
+          </div>
           <div className="cn-wechat-qr-note">扫码添加微信</div>
         </div>
 
