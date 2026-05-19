@@ -6,35 +6,7 @@ import Image from "next/image";
 const SESSION_KEY = "jukenDiagnosisResult";
 const WECHAT_ID = "Juken-family";
 
-function buildCopyFallback(text: string) {
-  const el = document.createElement("textarea");
-  el.value = text;
-  el.setAttribute("readonly", "");
-  el.style.position = "fixed";
-  el.style.top = "-1000px";
-  el.style.left = "-1000px";
-  document.body.appendChild(el);
-  el.select();
-  document.execCommand("copy");
-  document.body.removeChild(el);
-}
-
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    try {
-      buildCopyFallback(text);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
-
 export default function CnContactPage() {
-  const [copiedId, setCopiedId] = useState<"" | "message">("");
   const [diagnosisId, setDiagnosisId] = useState("");
 
   useEffect(() => {
@@ -48,15 +20,6 @@ export default function CnContactPage() {
       setDiagnosisId("");
     }
   }, []);
-
-  const handleCopyMessage = async () => {
-    const lines: string[] = [`微信号：${WECHAT_ID}`];
-    if (diagnosisId) lines.push(`诊断ID：${diagnosisId}`);
-    const ok = await copyText(lines.join("\n"));
-    if (!ok) return;
-    setCopiedId("message");
-    window.setTimeout(() => setCopiedId(""), 1200);
-  };
 
   return (
     <main className="legal-page cn-page cn-contact">
@@ -76,10 +39,11 @@ export default function CnContactPage() {
         </div>
 
         <div className="cn-contact-wechat-id">微信号：{WECHAT_ID}</div>
+        {diagnosisId ? <div className="cn-contact-diagnosis-id">诊断ID：{diagnosisId}</div> : null}
 
-        <button type="button" className="cn-wechat-btn cn-wechat-btn-primary" onClick={handleCopyMessage}>
-          {copiedId === "message" ? "已复制" : "复制咨询信息"}
-        </button>
+        <p className="legal-muted" style={{ marginTop: 12 }}>
+          {diagnosisId ? "添加微信后，请发送诊断ID。" : "添加微信后，请说明你想咨询的家庭学习情况。"}
+        </p>
 
         <p className="legal-muted" style={{ marginTop: 12 }}>
           仅面向在日华人中学受験家庭。

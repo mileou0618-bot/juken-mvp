@@ -3088,61 +3088,9 @@ fieldset.q-card,
   color: var(--color-text-main, #2f4858);
 }
 
-.cn-wechat-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-}
-
-.cn-wechat-btn {
-  appearance: none;
-  border: 1px solid var(--color-border, #e5ded5);
-  background: #fff;
-  color: var(--color-text-main, #2f4858);
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.cn-wechat-btn-primary {
-  background: var(--color-cta);
-  color: var(--color-cta-text);
-  border-color: transparent;
-  box-shadow: 0 10px 24px rgba(184, 138, 68, 0.18);
-}
-
-.cn-wechat-btn-primary:hover {
-  background: var(--color-cta-hover);
-}
-
-.cn-wechat-help {
-  font-size: 13px;
-  color: var(--color-text-sub, #6e6a64);
-  line-height: 1.6;
-}
-
 @media (max-width: 768px) {
   .cn-wechat-qr {
     max-width: 220px;
-  }
-
-  .cn-wechat-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .cn-wechat-btn {
-    width: 100%;
-    justify-content: center;
-    display: inline-flex;
-    align-items: center;
-    height: 48px;
   }
 }
 
@@ -3188,15 +3136,10 @@ fieldset.q-card,
   color: var(--color-text-main, #2f4858);
 }
 
-.cn-contact-card .cn-wechat-btn-primary {
-  margin: 14px auto 0;
-  width: auto;
-  min-width: 220px;
-  max-width: 280px;
-  border-radius: 16px;
-  padding: 12px 18px;
-  font-weight: 600;
-  box-shadow: none;
+.cn-contact-diagnosis-id {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--color-text-sub, #6e6a64);
 }
 
 @media (max-width: 768px) {
@@ -3208,10 +3151,6 @@ fieldset.q-card,
     max-width: min(260px, 80vw);
   }
 
-  .cn-contact-card .cn-wechat-btn-primary {
-    width: 100%;
-    min-width: 0;
-  }
 }
 
 @media (max-width: 768px) {

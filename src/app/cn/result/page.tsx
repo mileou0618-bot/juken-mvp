@@ -10,33 +10,6 @@ import RiskRadarChart from "@/components/juken/RiskRadarChart";
 const SESSION_KEY = "jukenDiagnosisResult";
 const WECHAT_ID = "Juken-family";
 
-function buildCopyFallback(text: string) {
-  const el = document.createElement("textarea");
-  el.value = text;
-  el.setAttribute("readonly", "");
-  el.style.position = "fixed";
-  el.style.top = "-1000px";
-  el.style.left = "-1000px";
-  document.body.appendChild(el);
-  el.select();
-  document.execCommand("copy");
-  document.body.removeChild(el);
-}
-
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    try {
-      buildCopyFallback(text);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
-
 function safeParse(json: string): StoredDiagnosisResult | null {
   try {
     return JSON.parse(json) as StoredDiagnosisResult;
@@ -47,7 +20,6 @@ function safeParse(json: string): StoredDiagnosisResult | null {
 
 export default function CnResultPage() {
   const [data, setData] = useState<(StoredDiagnosisResult & { language?: "ja" | "cn" }) | null>(null);
-  const [copiedId, setCopiedId] = useState<"" | "message">("");
 
   useEffect(() => {
     try {
@@ -238,8 +210,14 @@ export default function CnResultPage() {
           <h2 className="result-cta-title">想进一步确认家庭学习情况？</h2>
           <div className="result-cta-body">
             <p className="result-text">
-              添加微信后，请发送诊断ID。
-              我会根据结果，帮你一起确认现在最需要先整理的地方。
+              {diagnosisId ? (
+                <>
+                  添加微信后，请发送诊断ID。
+                  我会根据结果，帮你一起确认现在最需要先整理的地方。
+                </>
+              ) : (
+                <>添加微信后，请说明你想咨询的家庭学习情况。</>
+              )}
             </p>
           </div>
           <div className="cn-wechat-qr">
@@ -250,22 +228,6 @@ export default function CnResultPage() {
             <div className="cn-wechat-meta">
               <div>微信号：{WECHAT_ID}</div>
               {diagnosisId ? <div>诊断ID：{diagnosisId}</div> : null}
-            </div>
-            <div className="cn-wechat-actions">
-              <button
-                type="button"
-                className="cn-wechat-btn"
-                onClick={async () => {
-                  const lines: string[] = [`微信号：${WECHAT_ID}`];
-                  if (diagnosisId) lines.push(`诊断ID：${diagnosisId}`);
-                  const ok = await copyText(lines.join("\n"));
-                  if (!ok) return;
-                  setCopiedId("message");
-                  window.setTimeout(() => setCopiedId(""), 1200);
-                }}
-              >
-                {copiedId === "message" ? "已复制" : "复制咨询信息"}
-              </button>
             </div>
           </div>
           <p className="result-text" style={{ marginTop: 6, fontSize: 13, color: "#6E6A64" }}>
