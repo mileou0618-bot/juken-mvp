@@ -29,6 +29,8 @@ export default function JukenDiagnosisPage() {
   const [step, setStep] = useState(0);
   const perStep = isSp ? 4 : 18;
   const emailRef = useRef<HTMLInputElement | null>(null);
+  const nameRef = useRef<HTMLInputElement | null>(null);
+  const gradeRef = useRef<HTMLSelectElement | null>(null);
 
   const [profile, setProfile] = useState<Profile>({
     name: "",
@@ -39,6 +41,8 @@ export default function JukenDiagnosisPage() {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [profileErrors, setProfileErrors] = useState<{ name?: string; email?: string; grade?: string }>({});
+  const [questionErrorId, setQuestionErrorId] = useState<number | null>(null);
 
   useEffect(() => {
     const update = () => setIsSp(isMobile());
@@ -73,9 +77,25 @@ export default function JukenDiagnosisPage() {
   );
 
   const validateProfile = () => {
-    if (!profile.email.trim()) return "メールアドレスを入力してください。";
-    if (!profile.grade) return "お子さまの学年を選択してください。";
-    return "";
+    const errors: { name?: string; email?: string; grade?: string } = {};
+
+    if (!profile.email.trim()) {
+      errors.email = "メールアドレスを入力してください";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim())) {
+      errors.email = "メールアドレスの形式を確認してください";
+    }
+
+    if (!profile.grade) {
+      errors.grade = "学年を選択してください";
+    }
+
+    return errors;
+  };
+
+  const scrollToField = (id: string, focusEl?: HTMLElement | null) => {
+    const el = document.getElementById(id);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => focusEl?.focus?.(), 220);
   };
 
   const scrollToEmail = () => {
@@ -115,19 +135,35 @@ export default function JukenDiagnosisPage() {
   };
 
   const goNext = () => {
-    const message = validateProfile();
-    if (message) {
+    setSubmitError("");
+    setProfileErrors({});
+    setQuestionErrorId(null);
+
+    const errors = validateProfile();
+    const hasProfileErrors = Boolean(errors.email || errors.grade || errors.name);
+    if (hasProfileErrors) {
+      if (isSp) {
+        setProfileErrors(errors);
+        if (errors.name) scrollToField("field-name", nameRef.current);
+        else if (errors.email) scrollToField("field-email", emailRef.current);
+        else if (errors.grade) scrollToField("field-grade", gradeRef.current);
+        return;
+      }
+      const message = errors.name || errors.email || errors.grade || "入力内容を確認してください。";
       alert(message);
-      if (message.includes("メールアドレス")) scrollToEmail();
+      if (errors.email) scrollToEmail();
       return;
     }
     if (!currentAnswered) {
-      alert("このページの質問にすべて回答してください。");
       const firstMissing = currentQuestions.find((q) => {
         const key = `q${q.id}`;
         return !(Number(answers[key]) >= 1 && Number(answers[key]) <= 5);
       });
-      if (firstMissing) scrollToQuestion(firstMissing.id);
+      if (firstMissing) {
+        setQuestionErrorId(firstMissing.id);
+        if (!isSp) alert("このページの質問にすべて回答してください。");
+        scrollToQuestion(firstMissing.id);
+      }
       return;
     }
     if (end >= totalQuestions) return;
@@ -144,19 +180,35 @@ export default function JukenDiagnosisPage() {
   };
 
   const submit = async () => {
-    const message = validateProfile();
-    if (message) {
+    setSubmitError("");
+    setProfileErrors({});
+    setQuestionErrorId(null);
+
+    const errors = validateProfile();
+    const hasProfileErrors = Boolean(errors.email || errors.grade || errors.name);
+    if (hasProfileErrors) {
+      if (isSp) {
+        setProfileErrors(errors);
+        if (errors.name) scrollToField("field-name", nameRef.current);
+        else if (errors.email) scrollToField("field-email", emailRef.current);
+        else if (errors.grade) scrollToField("field-grade", gradeRef.current);
+        return;
+      }
+      const message = errors.name || errors.email || errors.grade || "入力内容を確認してください。";
       alert(message);
-      if (message.includes("メールアドレス")) scrollToEmail();
+      if (errors.email) scrollToEmail();
       return;
     }
     if (!allAnswered) {
-      alert("未回答の質問があります。すべて回答してください。");
       const firstMissing = JUKEN_DIAGNOSIS_QUESTIONS.find((q) => {
         const key = `q${q.id}`;
         return !(Number(answers[key]) >= 1 && Number(answers[key]) <= 5);
       });
-      if (firstMissing) scrollToQuestion(firstMissing.id);
+      if (firstMissing) {
+        setQuestionErrorId(firstMissing.id);
+        if (!isSp) alert("未回答の質問があります。すべて回答してください。");
+        scrollToQuestion(firstMissing.id);
+      }
       return;
     }
 
@@ -282,34 +334,48 @@ export default function JukenDiagnosisPage() {
         <section className="q-card" aria-label="基本情報">
           <h2 className="q-title">基本情報</h2>
           <div className="info-card" style={{ marginTop: 14 }}>
-            <label>
-              お名前（任意）
-              <input
-                value={profile.name}
-                onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
-                placeholder="例：山田"
-              />
-            </label>
-            <label>
-              メールアドレス
-              <input
-                value={profile.email}
-                onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))}
-                placeholder="example@email.com"
-                ref={emailRef}
-              />
-            </label>
-            <label>
-              お子さまの学年
-              <select value={profile.grade} onChange={(e) => setProfile((p) => ({ ...p, grade: e.target.value }))}>
-                <option value="">選択してください</option>
-                <option>小学3年生</option>
-                <option>小学4年生</option>
-                <option>小学5年生</option>
-                <option>小学6年生</option>
-                <option>その他</option>
-              </select>
-            </label>
+            <div id="field-name" className={profileErrors.name ? "field field-error" : "field"}>
+              <label>
+                お名前（任意）
+                <input
+                  value={profile.name}
+                  onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="例：山田"
+                  ref={nameRef}
+                />
+              </label>
+              {profileErrors.name ? <p className="field-error-text">{profileErrors.name}</p> : null}
+            </div>
+            <div id="field-email" className={profileErrors.email ? "field field-error" : "field"}>
+              <label>
+                メールアドレス
+                <input
+                  value={profile.email}
+                  onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="example@email.com"
+                  ref={emailRef}
+                />
+              </label>
+              {profileErrors.email ? <p className="field-error-text">{profileErrors.email}</p> : null}
+            </div>
+            <div id="field-grade" className={profileErrors.grade ? "field field-error" : "field"}>
+              <label>
+                お子さまの学年
+                <select
+                  value={profile.grade}
+                  onChange={(e) => setProfile((p) => ({ ...p, grade: e.target.value }))}
+                  ref={gradeRef}
+                >
+                  <option value="">選択してください</option>
+                  <option>小学3年生</option>
+                  <option>小学4年生</option>
+                  <option>小学5年生</option>
+                  <option>小学6年生</option>
+                  <option>その他</option>
+                </select>
+              </label>
+              {profileErrors.grade ? <p className="field-error-text">{profileErrors.grade}</p> : null}
+            </div>
             <label>
               通っている塾（任意）
               <input
@@ -324,11 +390,13 @@ export default function JukenDiagnosisPage() {
         {currentQuestions.map((q, idx) => {
           const qIndex = start + idx + 1;
           const key = `q${q.id}`;
+          const hasError = questionErrorId === q.id;
           return (
-            <section className="q-card" key={q.id} id={`question-${q.id}`} tabIndex={-1}>
+            <section className={hasError ? "q-card q-card-error" : "q-card"} key={q.id} id={`question-${q.id}`} tabIndex={-1}>
               <h2 className="q-title">
                 Q{qIndex}. {q.text}
               </h2>
+              {hasError ? <p className="field-error-text">回答を選択してください</p> : null}
               <div className="choices" role="radiogroup" aria-label={q.text}>
                 {OPTIONS.map((o) => (
                   <label className={Number(answers[key]) === o.value ? "choice selected" : "choice"} key={o.value}>
