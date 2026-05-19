@@ -72,6 +72,7 @@ export async function POST(req: Request) {
   }
 
   const submittedAt = body.submittedAt;
+  const language = body.language;
   const name = body.name;
   const email = body.email;
   const grade = body.grade;
@@ -113,6 +114,7 @@ export async function POST(req: Request) {
 
   const flatPayload: Record<string, unknown> = {
     submittedAt,
+    language: typeof language === "string" ? language : "",
     // name is optional
     name: typeof name === "string" ? name.trim() : "",
     email: String(email).trim(),

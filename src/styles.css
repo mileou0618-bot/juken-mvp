@@ -2988,3 +2988,85 @@ fieldset.q-card,
 .result-line-btn {
   font-weight: 600;
 }
+
+/* CN MVP: lightweight list styling inside result CTA */
+.cn-cta-list {
+  margin: 10px 0 0;
+  padding-left: 1.2em;
+  color: var(--color-text-sub, #6e6a64);
+  line-height: 1.8;
+}
+
+.cn-cta-list li {
+  margin: 4px 0;
+}
+
+/* CN MVP typography (scoped; does not affect JP pages) */
+.cn-page {
+  font-family: "Punctuation SC", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system,
+    BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+  letter-spacing: 0;
+}
+
+.cn-page .cn-hero-title {
+  max-width: 34rem;
+  line-break: strict;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+}
+
+.cn-page .lp-lead {
+  font-weight: 450;
+  line-height: 1.85;
+  letter-spacing: 0;
+}
+
+.cn-page .lp-cta,
+.cn-page .cta {
+  font-weight: 600;
+}
+
+/* CN: result page typography tuning */
+.cn-page .result-title {
+  font-weight: 700;
+  line-height: 1.32;
+  letter-spacing: 0.01em;
+}
+
+.cn-page .result-h2,
+.cn-page .result-cta-title {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.cn-page .result-text {
+  font-weight: 450;
+  font-size: 16px;
+  line-height: 1.85;
+  letter-spacing: 0;
+}
+
+.cn-page .risk-radar-label {
+  font-weight: 450;
+  letter-spacing: 0;
+}
+
+@media (max-width: 768px) {
+  .cn-page .cn-hero-title {
+    max-width: 100%;
+    font-weight: 700;
+    line-height: 1.34;
+  }
+
+  .cn-page .result-text {
+    font-size: 16px;
+    line-height: 1.9;
+  }
+
+  .cn-page .risk-radar-label {
+    font-size: 9.5px;
+  }
+}

@@ -23,6 +23,8 @@ const DIMENSIONS: RiskDimensionKey[] = [
 type Props = {
   dimensionRisks: DimensionRisks;
   className?: string;
+  labels?: Partial<Record<RiskDimensionKey, string>>;
+  ariaLabel?: string;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -36,7 +38,7 @@ function toPoint(cx: number, cy: number, r: number, angleRad: number) {
   };
 }
 
-export default function RiskRadarChart({ dimensionRisks, className }: Props) {
+export default function RiskRadarChart({ dimensionRisks, className, labels, ariaLabel }: Props) {
   // Slightly larger canvas + padding so axis labels never clip.
   const size = 360;
   const cx = 180;
@@ -64,7 +66,7 @@ export default function RiskRadarChart({ dimensionRisks, className }: Props) {
       <svg
         viewBox={`${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}`}
         role="img"
-        aria-label="リスクバランス（6指標）"
+        aria-label={ariaLabel || "リスクバランス（6指標）"}
       >
         {/* Rings */}
         {rings.map((r) => {
@@ -92,7 +94,7 @@ export default function RiskRadarChart({ dimensionRisks, className }: Props) {
         {/* Labels */}
         {angles.map((a, idx) => {
           const dim = DIMENSIONS[idx];
-          const label = DIMENSION_LABELS[dim];
+          const label = (labels && labels[dim]) || DIMENSION_LABELS[dim];
           const p = toPoint(cx, cy, radius + 36, a);
 
           const anchor = (() => {
@@ -111,7 +113,7 @@ export default function RiskRadarChart({ dimensionRisks, className }: Props) {
 
           const lines = (() => {
             // Split long labels into two lines to avoid clipping (PC & mobile).
-            // Keep Japanese names; no tooltips.
+            // Keep label language as-is; no tooltips.
             switch (label) {
               case "復習・定着不足":
                 return ["復習・定着", "不足"];
@@ -119,6 +121,14 @@ export default function RiskRadarChart({ dimensionRisks, className }: Props) {
                 return ["計画・優先", "順位"];
               case "親の関与過多":
                 return ["親の関与", "過多"];
+              case "复习・定着不足":
+                return ["复习・定着", "不足"];
+              case "计划・优先顺位":
+                return ["计划・优先", "顺位"];
+              case "家长介入过多":
+                return ["家长介入", "过多"];
+              case "自主性不足":
+                return ["自主性", "不足"];
               default:
                 return [label];
             }

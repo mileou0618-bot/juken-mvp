@@ -1,4 +1,4 @@
-const SPREADSHEET_ID = "1-UhodIWz4ViAJH5ZGaqSO4meh7IRkzn7m9QIK-jvlbo";
+const SPREADSHEET_ID = "1-UhodlWz4ViAJH5ZGaqSO4meh7lRkzn7m9QlK-jvIbo";
 
 // Manual check helper (run this from Apps Script editor to verify ID + permissions)
 function testOpenSheet() {
@@ -132,6 +132,8 @@ function getHeaders() {
     "mailCauses",
     "mailThisWeekActions",
     "mailParentMessage",
+    // Added later: keep at the end to avoid shifting existing columns in already-initialized Sheets.
+    "language",
   ];
 }
 
@@ -168,6 +170,15 @@ function sendDiagnosisMail(payload) {
   var to = safeString(payload.email).trim();
   if (!to) return false;
 
+  var language = safeString(payload.language).trim() || "jp";
+  if (language === "cn") {
+    return sendDiagnosisMailCn(payload, to);
+  }
+
+  return sendDiagnosisMailJa(payload, to);
+}
+
+function sendDiagnosisMailJa(payload, to) {
   var rawName = safeString(payload.name || payload.parentName).trim();
   var nameOrFallback = rawName ? (rawName + " 様") : "保護者様";
 
@@ -196,6 +207,57 @@ function sendDiagnosisMail(payload) {
     "LINEで現在の状況を整理できます。\n\n" +
     "LINE：https://lin.ee/pxHFmsI\n\n" +
     "※本診断は、家庭学習の状態整理を目的とした簡易診断です。";
+
+  MailApp.sendEmail({
+    to: to,
+    subject: subject,
+    body: body,
+  });
+
+  return true;
+}
+
+function sendDiagnosisMailCn(payload, to) {
+  // CN mail must not include Japanese templates or LINE copy.
+  var subject = "【诊断结果】家庭学习状态整理";
+
+  var topRisks = parseTopRisks(payload);
+  var topRiskLines = buildCnTopRiskLines(topRisks);
+
+  var body =
+    "家长您好\n\n" +
+    "感谢您完成「中学受験家庭学习整理」诊断。\n\n" +
+    "从这次结果看，\n" +
+    "您家现在的问题，\n" +
+    "不太像是孩子单纯不努力。\n\n" +
+    "更像是：\n" +
+    "每天都在学，\n" +
+    "但作业、复习、订正和考试准备之间，\n" +
+    "已经开始互相挤压。\n\n" +
+    "这次最需要先关注的是：\n\n" +
+    (topRiskLines.length ? topRiskLines.map(function (l) { return "• " + l; }).join("\n") : "• （暂无明显集中项）") +
+    "\n\n" +
+    "如果不先整理顺序，\n" +
+    "很容易变成：\n" +
+    "家长一直在催，\n" +
+    "孩子一直在赶，\n" +
+    "但真正该回头整理的内容越来越靠后。\n\n" +
+    "现在不建议马上继续加量。\n\n" +
+    "更应该先确认：\n\n" +
+    "1. 本周最该优先的是什么\n" +
+    "2. 哪些任务可以暂时减少\n" +
+    "3. 家长该介入到什么程度\n" +
+    "4. 复习和订正怎么重新放回日常节奏里\n\n" +
+    "如果你想进一步确认：\n" +
+    "你家现在到底应该先调整哪里，\n" +
+    "可以添加微信，把诊断结果截图发来。\n\n" +
+    "请一起发送：\n\n" +
+    "1. 孩子年级\n" +
+    "2. 所在塾\n" +
+    "3. 当前最困扰的一件事\n\n" +
+    "微信号：\n" +
+    "Juken-family\n\n" +
+    "※本诊断面向在日华人中学受験家庭，用于整理家庭学习结构。";
 
   MailApp.sendEmail({
     to: to,
@@ -239,6 +301,17 @@ function dimensionLabel(dimension) {
   return d;
 }
 
+function cnDimensionLabel(dimension) {
+  var d = safeString(dimension).trim();
+  if (d === "homework_load") return "宿题负荷";
+  if (d === "review_retention") return "复习・定着不足";
+  if (d === "planning") return "计划・优先顺位";
+  if (d === "parent_involvement") return "家长介入过多";
+  if (d === "autonomy") return "自主性不足";
+  if (d === "mental_load") return "精神负荷";
+  return d;
+}
+
 function buildTopRiskSummary(topRisks) {
   if (!topRisks || !topRisks.length) return "";
 
@@ -258,6 +331,50 @@ function buildTopRiskSummary(topRisks) {
 
   if (!labels.length) return "";
   return labels.join("と") + "が目立っています。";
+}
+
+function buildCnTopRiskLines(topRisks) {
+  if (!topRisks || !topRisks.length) return [];
+  var lines = topRisks
+    .slice(0, 2)
+    .map(function (r) {
+      if (!r || typeof r !== "object") return "";
+      var dim = r.dimension;
+      var label = cnDimensionLabel(dim);
+      return label;
+    })
+    .filter(function (s) {
+      return safeString(s).trim() !== "";
+    });
+  return lines;
+}
+
+function buildCnTypeDescription(typeKey) {
+  // Internal type keys from riskModel.type (Japanese). Return Chinese explanation.
+  switch (typeKey) {
+    case "安定運用型":
+      return "目前整体还算稳定，但需要继续定期检查复习与考试前的节奏。";
+    case "負荷過多型":
+      return "当前最大问题是作业负荷和精神负荷同时偏高，先别继续加量。";
+    case "不安定型":
+      return "多个环节同时不稳定，说明需要先把家庭学习节奏整理回来。";
+    case "親主導型":
+      return "目前学习较依赖家长推动，短期能维持进度，但长期会越来越累。";
+    case "表面努力型":
+      return "作业看起来完成了，但订正、复习和理解整理容易跟不上。";
+    case "計画不明型":
+      return "现在更需要整理“先做什么”，把优先级理清，而不是更努力。";
+    case "要観察型":
+      return "暂时没有集中爆发的问题，但已经出现需要留意和微调的点。";
+    default:
+      return "目前家庭学习中出现了一些需要整理的地方。";
+  }
+}
+
+function ensureCnPeriod(text) {
+  var t = String(text || "").trim();
+  if (!t) return "";
+  return /[。！？!?]$/.test(t) ? t : t + "。";
 }
 
 function normalizeMailText(value) {
