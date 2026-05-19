@@ -1,9 +1,53 @@
 const SPREADSHEET_ID = "1-UhodlWz4ViAJH5ZGaqSO4meh7lRkzn7m9QlK-jvIbo";
+const SHEET_NAME = "diagnosis_data_v2";
 
 // Manual check helper (run this from Apps Script editor to verify ID + permissions)
 function testOpenSheet() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   Logger.log(ss.getName());
+}
+
+function getDiagnosisSheet() {
+  var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = spreadsheet.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(SHEET_NAME);
+  }
+
+  var headers = getHeaders();
+  var lastCol = sheet.getLastColumn();
+  var existingHeaders = [];
+  if (lastCol > 0) {
+    existingHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  }
+
+  var hasAnyHeader = existingHeaders.some(function (value) {
+    return safeString(value).trim() !== "";
+  });
+
+  // This sheet is dedicated for the app. Keep header order fixed to getHeaders().
+  // If headers are missing/partial, overwrite header row to a clean state.
+  if (!hasAnyHeader || lastCol !== headers.length) {
+    var width = Math.max(lastCol, headers.length, 1);
+    sheet.getRange(1, 1, 1, width).clearContent();
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  } else {
+    // If same width but different content, still overwrite to guarantee a clean header row.
+    var current = sheet.getRange(1, 1, 1, headers.length).getValues()[0].map(function (v) { return safeString(v).trim(); });
+    var expected = headers.map(function (v) { return safeString(v).trim(); });
+    var mismatch = false;
+    for (var i = 0; i < expected.length; i++) {
+      if (current[i] !== expected[i]) {
+        mismatch = true;
+        break;
+      }
+    }
+    if (mismatch) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
+  }
+
+  return sheet;
 }
 
 function doPost(e) {
@@ -79,11 +123,8 @@ function parsePayload(e) {
 }
 
 function appendToSheet(payload) {
-  var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sheet = spreadsheet.getSheets()[0];
-
   var headers = getHeaders();
-  ensureHeaders(sheet, headers);
+  var sheet = getDiagnosisSheet();
 
   var row = headers.map(function (key) {
     if (key === "mailCauses" || key === "mailThisWeekActions") {
@@ -293,24 +334,76 @@ function lookupDiagnosis(payload) {
   if (!diagnosisId) return { ok: false, error: "BAD_REQUEST" };
 
   var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sheet = spreadsheet.getSheets()[0];
-  var lastRow = sheet.getLastRow();
-  var lastCol = sheet.getLastColumn();
-  if (lastRow < 2 || lastCol < 1) return { ok: false, error: "NOT_FOUND" };
+  var sheet = getDiagnosisSheet();
+  var dataRange = sheet.getDataRange();
+  var allValues = dataRange.getValues();
+  if (!allValues || allValues.length < 2 || !allValues[0] || allValues[0].length < 1) {
+    return {
+      ok: false,
+      error: "NOT_FOUND",
+      debug: {
+        activeSheetName: SHEET_NAME,
+        headerCount: 0,
+        requestedDiagnosisId: diagnosisId,
+        diagnosisIdHeaderFound: false,
+        diagnosisIdColumnIndex: -1,
+        scannedRows: 0,
+      },
+    };
+  }
 
-  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (v) { return safeString(v).trim(); });
+  var headers = allValues[0].map(function (v) { return safeString(v).trim(); });
+  var headerCount = headers.length;
+  var diagnosisIdHeaderIndexes = [];
+  for (var hi = 0; hi < headers.length; hi++) {
+    if (headers[hi] === "diagnosisId") diagnosisIdHeaderIndexes.push(hi);
+  }
   var idx = headers.indexOf("diagnosisId");
-  if (idx < 0) return { ok: false, error: "NOT_FOUND" };
+  if (idx < 0) {
+    return {
+      ok: false,
+      error: "NOT_FOUND",
+      debug: {
+        activeSheetName: SHEET_NAME,
+        headerCount: headerCount,
+        requestedDiagnosisId: diagnosisId,
+        diagnosisIdHeaderFound: false,
+        diagnosisIdColumnIndex: -1,
+        diagnosisIdHeaderIndexes: diagnosisIdHeaderIndexes,
+        diagnosisIdColumnHeaderValue: "",
+        diagnosisIdCellValue: "",
+        scannedRows: allValues.length - 1,
+      },
+    };
+  }
 
-  var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var rows = allValues.slice(1);
   var found = null;
-  for (var r = 0; r < values.length; r++) {
-    if (safeString(values[r][idx]).trim() === diagnosisId) {
-      found = values[r];
+  for (var r = 0; r < rows.length; r++) {
+    if (safeString(rows[r][idx]).trim() === diagnosisId) {
+      found = rows[r];
       break;
     }
   }
-  if (!found) return { ok: false, error: "NOT_FOUND" };
+  if (!found) {
+    var lastCellValue = "";
+    if (rows.length) lastCellValue = safeString(rows[rows.length - 1][idx]).trim();
+    return {
+      ok: false,
+      error: "NOT_FOUND",
+      debug: {
+        activeSheetName: SHEET_NAME,
+        headerCount: headerCount,
+        requestedDiagnosisId: diagnosisId,
+        diagnosisIdHeaderFound: true,
+        diagnosisIdColumnIndex: idx,
+        diagnosisIdHeaderIndexes: diagnosisIdHeaderIndexes,
+        diagnosisIdColumnHeaderValue: safeString(headers[idx]),
+        diagnosisIdCellValue: lastCellValue,
+        scannedRows: rows.length,
+      },
+    };
+  }
 
   function get(key) {
     var i = headers.indexOf(key);
@@ -354,6 +447,17 @@ function lookupDiagnosis(payload) {
   return {
     ok: true,
     diagnosis: diagnosis,
+    debug: {
+      activeSheetName: SHEET_NAME,
+      headerCount: headerCount,
+      requestedDiagnosisId: diagnosisId,
+      diagnosisIdHeaderFound: true,
+      diagnosisIdColumnIndex: idx,
+      diagnosisIdHeaderIndexes: diagnosisIdHeaderIndexes,
+      diagnosisIdColumnHeaderValue: safeString(headers[idx]),
+      diagnosisIdCellValue: safeString(found[idx]).trim(),
+      scannedRows: rows.length,
+    },
     warning: warning || undefined,
   };
 }

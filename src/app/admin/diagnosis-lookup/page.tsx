@@ -32,14 +32,21 @@ export default function AdminDiagnosisLookupPage() {
       });
       const json = (await res.json().catch(() => null)) as LookupResponse | null;
       if (!res.ok) {
-        setError((json as any)?.error || "Lookup failed");
+        const code = (json as any)?.error;
+        if (res.status === 401 || code === "UNAUTHORIZED") {
+          setError("管理キーが正しくありません。");
+        } else if (res.status === 400 && code === "diagnosisId is required") {
+          setError("診断IDを入力してください。");
+        } else {
+          setError("検索に失敗しました。");
+        }
         setLoading(false);
         return;
       }
       setResult(json);
       setLoading(false);
     } catch (e) {
-      setError("Lookup failed");
+      setError("検索に失敗しました。");
       setLoading(false);
     }
   };
@@ -62,10 +69,10 @@ export default function AdminDiagnosisLookupPage() {
 
   return (
     <div style={{ padding: 24, maxWidth: 980, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 22, marginBottom: 14 }}>Diagnosis Lookup (Internal)</h1>
+      <h1 style={{ fontSize: 22, marginBottom: 14 }}>診断結果検索（内部用）</h1>
       <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr", alignItems: "end" }}>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>diagnosisId</span>
+          <span>診断ID</span>
           <input
             value={diagnosisId}
             onChange={(e) => setDiagnosisId(e.target.value)}
@@ -74,11 +81,12 @@ export default function AdminDiagnosisLookupPage() {
           />
         </label>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>adminKey</span>
+          <span>管理キー</span>
           <input
+            type="password"
             value={adminKey}
             onChange={(e) => setAdminKey(e.target.value)}
-            placeholder="ADMIN_LOOKUP_KEY"
+            placeholder="（入力してください）"
             style={{ padding: "10px 12px", border: "1px solid #ccc", borderRadius: 8 }}
           />
         </label>
@@ -96,7 +104,7 @@ export default function AdminDiagnosisLookupPage() {
             cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          {loading ? "Looking up..." : "Lookup"}
+          {loading ? "検索中..." : "検索する"}
         </button>
       </div>
 
@@ -105,9 +113,12 @@ export default function AdminDiagnosisLookupPage() {
       {result ? (
         <div style={{ marginTop: 18, display: "grid", gap: 14 }}>
           <div style={{ padding: 16, border: "1px solid #ddd", borderRadius: 12, background: "#fff" }}>
-            <div style={{ fontSize: 12, color: "#555" }}>GAS status: {result.gasStatus}</div>
-            {result.gas?.ok === false ? <div style={{ color: "#b42318" }}>GAS error: {result.gas.error}</div> : null}
+            <div style={{ fontSize: 12, color: "#555" }}>GASステータス: {result.gasStatus}</div>
+            {result.gas?.ok === false ? <div style={{ color: "#b42318" }}>GASエラー: {result.gas.error}</div> : null}
             {result.gas?.warning ? <div style={{ color: "#7a5" }}>warning: {String(result.gas.warning)}</div> : null}
+            {result.gas?.ok === false && result.gas?.debug ? (
+              <pre style={{ marginTop: 10, fontSize: 12, overflowX: "auto" }}>{JSON.stringify(result.gas.debug, null, 2)}</pre>
+            ) : null}
           </div>
 
           {diagnosis ? (
@@ -115,13 +126,13 @@ export default function AdminDiagnosisLookupPage() {
               <h2 style={{ margin: 0, fontSize: 16 }}>診断</h2>
               <div style={{ marginTop: 10, display: "grid", gap: 6, fontSize: 14 }}>
                 <div>診断ID: {diagnosis.diagnosisId}</div>
-                <div>submittedAt: {diagnosis.submittedAt}</div>
-                <div>name: {diagnosis.parentName}</div>
-                <div>email: {diagnosis.email}</div>
-                <div>diagnosisLabel: {diagnosis.diagnosisLabel}</div>
-                <div>diagnosisType: {diagnosis.diagnosisType}</div>
-                <div>overallRisk: {diagnosis.overallRisk}</div>
-                <div>thisWeekAction: {diagnosis.thisWeekAction}</div>
+                <div>送信日時: {diagnosis.submittedAt}</div>
+                <div>保護者名: {diagnosis.parentName}</div>
+                <div>メールアドレス: {diagnosis.email}</div>
+                <div>表示タイプ: {diagnosis.diagnosisLabel}</div>
+                <div>内部タイプ: {diagnosis.diagnosisType}</div>
+                <div>総合リスク: {diagnosis.overallRisk}</div>
+                <div>今週の優先アクション: {diagnosis.thisWeekAction}</div>
                 <div>language: {diagnosis.language}</div>
               </div>
             </div>
@@ -129,7 +140,7 @@ export default function AdminDiagnosisLookupPage() {
 
           {hasRadar && dimensions ? (
             <div style={{ padding: 16, border: "1px solid #ddd", borderRadius: 12, background: "#fff" }}>
-              <h2 style={{ margin: 0, fontSize: 16 }}>6維度</h2>
+              <h2 style={{ margin: 0, fontSize: 16 }}>6項目スコア</h2>
               <div style={{ marginTop: 10 }}>
                 <RiskRadarChart dimensionRisks={dimensions} />
               </div>
@@ -138,7 +149,7 @@ export default function AdminDiagnosisLookupPage() {
 
           {answers ? (
             <div style={{ padding: 16, border: "1px solid #ddd", borderRadius: 12, background: "#fff" }}>
-              <h2 style={{ margin: 0, fontSize: 16 }}>answers</h2>
+              <h2 style={{ margin: 0, fontSize: 16 }}>18問回答</h2>
               <pre style={{ marginTop: 10, fontSize: 12, overflowX: "auto" }}>{JSON.stringify(answers, null, 2)}</pre>
             </div>
           ) : null}
@@ -147,4 +158,3 @@ export default function AdminDiagnosisLookupPage() {
     </div>
   );
 }
-
