@@ -10,6 +10,16 @@ import { JUKEN_RESULT_TEMPLATES } from "@/data/jukenResultTemplates";
 
 const SESSION_KEY = "jukenDiagnosisResult";
 
+function generateDiagnosisId(date: Date) {
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let suffix = "";
+  for (let i = 0; i < 6; i++) suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return `JUKEN-${yyyy}${mm}${dd}-${suffix}`;
+}
+
 const OPTIONS = [
   { label: "1", text: "まったく当てはまらない", value: 1 },
   { label: "2", text: "あまり当てはまらない", value: 2 },
@@ -225,8 +235,11 @@ export default function JukenDiagnosisPage() {
     const riskModel = buildDiagnosisResult(answers);
 
     const submittedAt = new Date().toISOString();
+    const diagnosisId = generateDiagnosisId(new Date());
     const payload = {
       submittedAt,
+      diagnosisId,
+      language: "ja",
       name: profile.name.trim(),
       email: profile.email.trim(),
       grade: profile.grade,
@@ -281,6 +294,8 @@ export default function JukenDiagnosisPage() {
       }
 
       const stored: StoredDiagnosisResult = {
+        diagnosisId,
+        language: "ja",
         profile: {
           name: payload.name,
           email: payload.email,

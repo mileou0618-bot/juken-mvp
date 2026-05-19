@@ -13,6 +13,17 @@ function isValidAnswerValue(value: number) {
   return Number.isFinite(value) && value >= 1 && value <= 5;
 }
 
+function generateDiagnosisId(submittedAtIso: string) {
+  const date = new Date(submittedAtIso);
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let suffix = "";
+  for (let i = 0; i < 6; i++) suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return `JUKEN-${yyyy}${mm}${dd}-${suffix}`;
+}
+
 function normalizeMailLine(text: unknown) {
   return String(text ?? "")
     .replace(/\r\n/g, "\n")
@@ -73,6 +84,7 @@ export async function POST(req: Request) {
 
   const submittedAt = body.submittedAt;
   const language = body.language;
+  const diagnosisId = body.diagnosisId;
   const name = body.name;
   const email = body.email;
   const grade = body.grade;
@@ -115,6 +127,7 @@ export async function POST(req: Request) {
   const flatPayload: Record<string, unknown> = {
     submittedAt,
     language: typeof language === "string" ? language : "",
+    diagnosisId: isNonEmptyString(diagnosisId) ? String(diagnosisId).trim() : generateDiagnosisId(String(submittedAt)),
     // name is optional
     name: typeof name === "string" ? name.trim() : "",
     email: String(email).trim(),
@@ -184,7 +197,24 @@ export async function POST(req: Request) {
     flatPayload.riskDimensionRisks = safeString(rm.dimensionRisks);
     flatPayload.riskTopRisks = safeString(rm.topRisks);
     flatPayload.riskStructure = safeString(rm.structure);
+
+    // Flattened dimension risks for Sheet lookup / radar reuse.
+    const dims = (rm.dimensionRisks && typeof rm.dimensionRisks === "object" ? (rm.dimensionRisks as Record<string, unknown>) : {}) as Record<
+      string,
+      unknown
+    >;
+    flatPayload.overallRisk = Number(rm.overallRisk ?? 0);
+    flatPayload.homework_load = Number(dims.homework_load ?? 0);
+    flatPayload.review_retention = Number(dims.review_retention ?? 0);
+    flatPayload.planning = Number(dims.planning ?? 0);
+    flatPayload.parent_involvement = Number(dims.parent_involvement ?? 0);
+    flatPayload.autonomy = Number(dims.autonomy ?? 0);
+    flatPayload.mental_load = Number(dims.mental_load ?? 0);
   }
+
+  // Stable JSON for lookups.
+  flatPayload.answersJson = safeString(normalizedAnswers);
+  flatPayload.thisWeekAction = normalizeMailLine(display.mailNextAction);
 
   console.log("[juken] diagnosis payload", flatPayload);
 

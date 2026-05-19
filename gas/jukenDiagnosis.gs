@@ -22,6 +22,11 @@ function doPost(e) {
     }
 
     try {
+      // lookup branch
+      if (payload && payload.action === "lookupDiagnosis") {
+        return jsonResponse(lookupDiagnosis(payload));
+      }
+
       appendToSheet(payload);
       sheetOk = true;
     } catch (sheetErr) {
@@ -134,6 +139,17 @@ function getHeaders() {
     "mailParentMessage",
     // Added later: keep at the end to avoid shifting existing columns in already-initialized Sheets.
     "language",
+    // internal diagnosis trace
+    "diagnosisId",
+    "overallRisk",
+    "homework_load",
+    "review_retention",
+    "planning",
+    "parent_involvement",
+    "autonomy",
+    "mental_load",
+    "answersJson",
+    "thisWeekAction",
   ];
 }
 
@@ -206,6 +222,9 @@ function sendDiagnosisMailJa(payload, to) {
     "必要であれば、\n" +
     "LINEで現在の状況を整理できます。\n\n" +
     "LINE：https://lin.ee/pxHFmsI\n\n" +
+    (safeString(payload.diagnosisId).trim()
+      ? "\n診断ID：" + safeString(payload.diagnosisId).trim() + "\nLINEでご相談いただく際は、この診断IDをお送りください。\n"
+      : "") +
     "※本診断は、家庭学習の状態整理を目的とした簡易診断です。";
 
   MailApp.sendEmail({
@@ -257,6 +276,7 @@ function sendDiagnosisMailCn(payload, to) {
     "3. 当前最困扰的一件事\n\n" +
     "微信号：\n" +
     "Juken-family\n\n" +
+    (safeString(payload.diagnosisId).trim() ? "\n诊断ID：" + safeString(payload.diagnosisId).trim() + "\n（咨询时请一并发送该诊断ID）\n" : "") +
     "※本诊断面向在日华人中学受験家庭，用于整理家庭学习结构。";
 
   MailApp.sendEmail({
@@ -266,6 +286,76 @@ function sendDiagnosisMailCn(payload, to) {
   });
 
   return true;
+}
+
+function lookupDiagnosis(payload) {
+  var diagnosisId = safeString(payload && payload.diagnosisId).trim();
+  if (!diagnosisId) return { ok: false, error: "BAD_REQUEST" };
+
+  var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = spreadsheet.getSheets()[0];
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return { ok: false, error: "NOT_FOUND" };
+
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (v) { return safeString(v).trim(); });
+  var idx = headers.indexOf("diagnosisId");
+  if (idx < 0) return { ok: false, error: "NOT_FOUND" };
+
+  var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var found = null;
+  for (var r = 0; r < values.length; r++) {
+    if (safeString(values[r][idx]).trim() === diagnosisId) {
+      found = values[r];
+      break;
+    }
+  }
+  if (!found) return { ok: false, error: "NOT_FOUND" };
+
+  function get(key) {
+    var i = headers.indexOf(key);
+    if (i < 0) return "";
+    return safeString(found[i]);
+  }
+
+  var answersRaw = get("answersJson");
+  var answers = null;
+  var warning = "";
+  if (answersRaw) {
+    try {
+      answers = JSON.parse(answersRaw);
+    } catch (e) {
+      answers = null;
+      warning = "answersJson_parse_failed";
+    }
+  }
+
+  var diagnosis = {
+    diagnosisId: diagnosisId,
+    submittedAt: get("submittedAt"),
+    parentName: get("name"),
+    email: get("email"),
+    diagnosisType: get("diagnosisType"),
+    diagnosisLabel: get("diagnosisLabel"),
+    overallRisk: Number(get("overallRisk") || 0),
+    dimensions: {
+      homework_load: Number(get("homework_load") || 0),
+      review_retention: Number(get("review_retention") || 0),
+      planning: Number(get("planning") || 0),
+      parent_involvement: Number(get("parent_involvement") || 0),
+      autonomy: Number(get("autonomy") || 0),
+      mental_load: Number(get("mental_load") || 0),
+    },
+    answers: answers,
+    thisWeekAction: get("thisWeekAction") || get("mailThisWeekActions"),
+    language: get("language"),
+  };
+
+  return {
+    ok: true,
+    diagnosis: diagnosis,
+    warning: warning || undefined,
+  };
 }
 
 function normalizeSingleLine(text) {

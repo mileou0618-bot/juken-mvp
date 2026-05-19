@@ -9,6 +9,16 @@ import type { Profile, StoredDiagnosisResult } from "@/lib/juken/types";
 
 const SESSION_KEY = "jukenDiagnosisResult";
 
+function generateDiagnosisId(date: Date) {
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let suffix = "";
+  for (let i = 0; i < 6; i++) suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return `JUKEN-${yyyy}${mm}${dd}-${suffix}`;
+}
+
 const OPTIONS = [
   { label: "1", text: "完全不符合", value: 1 },
   { label: "2", text: "不太符合", value: 2 },
@@ -199,8 +209,10 @@ export default function CnDiagnosisPage() {
 
     const riskModel = buildDiagnosisResult(answers);
     const submittedAt = new Date().toISOString();
+    const diagnosisId = generateDiagnosisId(new Date());
     const payload = {
       submittedAt,
+      diagnosisId,
       language: "cn",
       name: profile.name.trim(),
       email: profile.email.trim(),
@@ -245,6 +257,7 @@ export default function CnDiagnosisPage() {
       }
 
       const stored: StoredDiagnosisResult & { language?: "ja" | "cn" } = {
+        diagnosisId,
         language: "cn",
         profile: {
           name: payload.name,

@@ -35,3 +35,10 @@ npm run dev
 - 選択肢を主役にしつつ、未選択状態を軽く調整
 - 戻る/次へボタンの重量感を調整
 - ロジック・GAS URL は変更なし
+
+## 環境変数
+
+内部用の診断検索 API（`/api/admin/diagnosis-lookup`）を使う場合は、環境変数 `ADMIN_LOOKUP_KEY` を設定してください。
+
+例：
+`ADMIN_LOOKUP_KEY=任意の強いパスワード`

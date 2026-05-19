@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { StoredDiagnosisResult } from "@/lib/juken/types";
+import type { DimensionRisks, StoredDiagnosisResult } from "@/lib/juken/types";
 import { CN_DIMENSION_LABELS, CN_RESULT_TEMPLATES } from "@/data/cnResultTemplates";
 import RiskRadarChart from "@/components/juken/RiskRadarChart";
 
@@ -29,6 +29,7 @@ export default function CnResultPage() {
   }, []);
 
   const riskModel = data?.riskModel ?? null;
+  const diagnosisId = (data && typeof (data as any).diagnosisId === "string" ? String((data as any).diagnosisId) : "").trim();
   const type = (riskModel && typeof (riskModel as any).type === "string" ? String((riskModel as any).type) : "") as keyof typeof CN_RESULT_TEMPLATES;
 
   const template = useMemo(() => {
@@ -36,41 +37,28 @@ export default function CnResultPage() {
     return CN_RESULT_TEMPLATES[type];
   }, [type]);
 
-  const topRisks = (riskModel?.topRisks ?? []).slice(0, 2);
+  const topRisks = (Array.isArray((riskModel as any)?.topRisks) ? ((riskModel as any).topRisks as any[]) : []).slice(0, 2) as Array<{
+    dimension?: string;
+    label?: string;
+    score?: number;
+  }>;
 
-  if (!data || !riskModel || !template) {
-    return (
-      <div className="form-page">
-        <main className="done-page">
-          <div className="done-card">
-            <h1>无法读取诊断结果。</h1>
-            <p>请返回诊断页重新填写。</p>
-            <Link href="/cn/diagnosis" className="cta light" style={{ display: "inline-block" }}>
-              返回诊断页
-            </Link>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  const wechatId = process.env.NEXT_PUBLIC_WECHAT_ID || "";
-  const wechatUrl = process.env.NEXT_PUBLIC_WECHAT_URL || "weixin://";
-
-  const radarLabels = {
-    homework_load: "宿题负荷",
-    review_retention: "复习・定着不足",
-    planning: "计划・优先顺位",
-    parent_involvement: "家长介入过多",
-    autonomy: "自主性不足",
-    mental_load: "精神负荷",
-  } as const;
+  const dimensionRisks = useMemo(() => {
+    const dr = (riskModel as any)?.dimensionRisks;
+    if (!dr || typeof dr !== "object") return null;
+    const keys = ["homework_load", "review_retention", "planning", "parent_involvement", "autonomy", "mental_load"] as const;
+    for (const k of keys) {
+      const v = Number(dr[k]);
+      if (!Number.isFinite(v)) return null;
+    }
+    return dr as DimensionRisks;
+  }, [riskModel]);
 
   const topRiskNarrative = useMemo(() => {
-    const dims = topRisks.map((r) => r.dimension);
+    const dims = topRisks.map((r) => r.dimension).filter((d): d is string => typeof d === "string");
     const parts: string[] = [];
 
-    const has = (d: (typeof dims)[number]) => dims.includes(d);
+    const has = (d: string) => dims.includes(d);
 
     if (has("parent_involvement")) {
       parts.push(
@@ -106,11 +94,44 @@ export default function CnResultPage() {
     return parts.slice(0, 2);
   }, [topRisks]);
 
+  if (!data || !riskModel || !template) {
+    return (
+      <div className="form-page">
+        <main className="done-page">
+          <div className="done-card">
+            <h1>无法读取诊断结果。</h1>
+            <p>请返回诊断页重新填写。</p>
+            <Link href="/cn/diagnosis" className="cta light" style={{ display: "inline-block" }}>
+              返回诊断页
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const wechatId = process.env.NEXT_PUBLIC_WECHAT_ID || "";
+  const wechatUrl = process.env.NEXT_PUBLIC_WECHAT_URL || "weixin://";
+
+  const radarLabels = {
+    homework_load: "宿题负荷",
+    review_retention: "复习・定着不足",
+    planning: "计划・优先顺位",
+    parent_involvement: "家长介入过多",
+    autonomy: "自主性不足",
+    mental_load: "精神负荷",
+  } as const;
+
   return (
     <div className="result-page cn-page">
       <main className="result-main">
         <section className="result-module">
           <div className="result-kicker">诊断结果</div>
+          {diagnosisId ? (
+            <p className="result-text" style={{ marginTop: 10, fontSize: 13, color: "#6E6A64" }}>
+              诊断ID：{diagnosisId}
+            </p>
+          ) : null}
           <h1 className="result-title">不是孩子不努力，<br />而是家庭学习结构开始失衡了。</h1>
           <p className="result-text" style={{ marginTop: 14 }}>
             每天都在学，但作业、复习、订正和考试准备之间，已经开始互相挤压。
@@ -123,22 +144,28 @@ export default function CnResultPage() {
             {template.title}
           </p>
           <div className="risk-balance">
-            <RiskRadarChart dimensionRisks={riskModel.dimensionRisks} labels={radarLabels} ariaLabel="家庭学习倾向（6项）" />
+            {dimensionRisks ? (
+              <RiskRadarChart dimensionRisks={dimensionRisks} labels={radarLabels} ariaLabel="家庭学习倾向（6项）" />
+            ) : (
+              <div className="result-text" style={{ marginTop: 6 }}>
+                （风险图暂时无法显示）
+              </div>
+            )}
 
             <div className="risk-metrics" aria-label="各维度分数（1〜5）">
               {(
                 [
-                  ["宿题负荷", riskModel.dimensionRisks.homework_load],
-                  ["复习・定着不足", riskModel.dimensionRisks.review_retention],
-                  ["计划・优先顺位", riskModel.dimensionRisks.planning],
-                  ["家长介入过多", riskModel.dimensionRisks.parent_involvement],
-                  ["自主性不足", riskModel.dimensionRisks.autonomy],
-                  ["精神负荷", riskModel.dimensionRisks.mental_load],
+                  ["宿题负荷", dimensionRisks?.homework_load],
+                  ["复习・定着不足", dimensionRisks?.review_retention],
+                  ["计划・优先顺位", dimensionRisks?.planning],
+                  ["家长介入过多", dimensionRisks?.parent_involvement],
+                  ["自主性不足", dimensionRisks?.autonomy],
+                  ["精神负荷", dimensionRisks?.mental_load],
                 ] as const
               ).map(([label, score]) => (
                 <div className="risk-metric" key={label}>
                   <span className="risk-metric-label">{label}</span>
-                  <span className="risk-metric-score">{Number(score).toFixed(1)}</span>
+                  <span className="risk-metric-score">{Number(score ?? 0).toFixed(1)}</span>
                 </div>
               ))}
             </div>
@@ -149,9 +176,10 @@ export default function CnResultPage() {
             <div className="risk-top-tags">
               {topRisks.length ? (
                 topRisks.map((r) => {
-                  const label = CN_DIMENSION_LABELS[r.dimension];
+                  const dim = r.dimension as keyof typeof CN_DIMENSION_LABELS;
+                  const label = dim && dim in CN_DIMENSION_LABELS ? CN_DIMENSION_LABELS[dim] : "（不明）";
                   return (
-                    <span className="risk-tag" key={`${r.dimension}-${label}`}>
+                    <span className="risk-tag" key={`${String(r.dimension)}-${label}`}>
                       {label}
                     </span>
                   );
@@ -199,7 +227,7 @@ export default function CnResultPage() {
             </p>
           </div>
           <div className="result-btn-row" style={{ justifyContent: "flex-start" }}>
-            <a className="result-line-btn" href={wechatUrl} target="_blank" rel="noopener noreferrer">
+            <a className="lp-cta" href={wechatUrl} target="_blank" rel="noopener noreferrer">
               添加微信咨询
             </a>
           </div>

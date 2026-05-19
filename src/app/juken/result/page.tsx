@@ -98,6 +98,7 @@ export default function JukenResultPage() {
   }, []);
 
   const riskModel = data?.riskModel ?? null;
+  const diagnosisId = (data && typeof (data as any).diagnosisId === "string" ? String((data as any).diagnosisId) : "").trim();
   const display = useMemo(() => (riskModel ? getResultDisplay(String((riskModel as any).type ?? "")) : null), [riskModel]);
 
   useEffect(() => {
@@ -133,6 +134,11 @@ export default function JukenResultPage() {
         {/* Module 1: Result title card */}
         <section className="result-module">
           <div className="result-kicker">診断結果</div>
+          {diagnosisId ? (
+            <p className="result-text" style={{ marginTop: 10, fontSize: 13, color: "#6E6A64" }}>
+              診断ID：{diagnosisId}
+            </p>
+          ) : null}
           <h1 className="result-title">
             <ResponsiveTitle text={display.resultTitle as string} isMobile={isMobile} />
           </h1>

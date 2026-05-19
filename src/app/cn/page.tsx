@@ -57,16 +57,6 @@ export default function CnHomePage() {
             <div>明明投入很多，却越来越累</div>
           </div>
         </section>
-
-        <section className="bottom-cta">
-          <h2>免费查看当前家庭学习结构</h2>
-          <p style={{ marginTop: 12 }}>先从 18 题开始，把现状说清楚。</p>
-          <div style={{ marginTop: 18, display: "flex", justifyContent: "center" }}>
-            <Link href="/cn/diagnosis" className="cta">
-              开始18题免费诊断
-            </Link>
-          </div>
-        </section>
       </main>
     </div>
   );

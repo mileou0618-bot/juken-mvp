@@ -59,6 +59,7 @@ export type Profile = {
 };
 
 export type StoredDiagnosisResult = {
+  diagnosisId?: string;
   profile: Profile;
   answers: Record<string, number>;
   scores: Scores;
@@ -66,4 +67,5 @@ export type StoredDiagnosisResult = {
   urgency: Urgency;
   maxScore: number;
   riskModel?: RiskModelDiagnosisResult;
+  language?: "ja" | "cn";
 };
