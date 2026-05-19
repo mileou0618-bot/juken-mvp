@@ -2,11 +2,40 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { DimensionRisks, StoredDiagnosisResult } from "@/lib/juken/types";
 import { CN_DIMENSION_LABELS, CN_RESULT_TEMPLATES } from "@/data/cnResultTemplates";
 import RiskRadarChart from "@/components/juken/RiskRadarChart";
 
 const SESSION_KEY = "jukenDiagnosisResult";
+const WECHAT_ID = "Juken-family";
+
+function buildCopyFallback(text: string) {
+  const el = document.createElement("textarea");
+  el.value = text;
+  el.setAttribute("readonly", "");
+  el.style.position = "fixed";
+  el.style.top = "-1000px";
+  el.style.left = "-1000px";
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand("copy");
+  document.body.removeChild(el);
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      buildCopyFallback(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
 
 function safeParse(json: string): StoredDiagnosisResult | null {
   try {
@@ -18,6 +47,7 @@ function safeParse(json: string): StoredDiagnosisResult | null {
 
 export default function CnResultPage() {
   const [data, setData] = useState<(StoredDiagnosisResult & { language?: "ja" | "cn" }) | null>(null);
+  const [copiedId, setCopiedId] = useState<"" | "message">("");
 
   useEffect(() => {
     try {
@@ -110,9 +140,6 @@ export default function CnResultPage() {
     );
   }
 
-  const wechatId = process.env.NEXT_PUBLIC_WECHAT_ID || "";
-  const wechatUrl = process.env.NEXT_PUBLIC_WECHAT_URL || "weixin://";
-
   const radarLabels = {
     homework_load: "宿题负荷",
     review_retention: "复习・定着不足",
@@ -123,15 +150,10 @@ export default function CnResultPage() {
   } as const;
 
   return (
-    <div className="result-page cn-page">
+    <div className="result-page cn-page cn-result">
       <main className="result-main">
         <section className="result-module">
           <div className="result-kicker">诊断结果</div>
-          {diagnosisId ? (
-            <p className="result-text" style={{ marginTop: 10, fontSize: 13, color: "#6E6A64" }}>
-              诊断ID：{diagnosisId}
-            </p>
-          ) : null}
           <h1 className="result-title">不是孩子不努力，<br />而是家庭学习结构开始失衡了。</h1>
           <p className="result-text" style={{ marginTop: 14 }}>
             每天都在学，但作业、复习、订正和考试准备之间，已经开始互相挤压。
@@ -140,7 +162,7 @@ export default function CnResultPage() {
 
         <section className="result-module">
           <h2 className="result-h2">当前家庭学习倾向</h2>
-          <p className="result-text" style={{ marginTop: 10 }}>
+          <p className="result-text cn-clamp-3" style={{ marginTop: 10 }}>
             {template.title}
           </p>
           <div className="risk-balance">
@@ -193,15 +215,11 @@ export default function CnResultPage() {
           <div style={{ marginTop: 14 }}>
             <div className="risk-top-title">现在最明显的问题</div>
             {topRiskNarrative.length ? (
-              <div style={{ marginTop: 8 }}>
-                {topRiskNarrative.map((p) => (
-                  <p key={p} className="result-text" style={{ marginTop: 10 }}>
-                    {p}
-                  </p>
-                ))}
-              </div>
+              <p className="result-text cn-clamp-3" style={{ marginTop: 10 }}>
+                {topRiskNarrative[0]}
+              </p>
             ) : (
-              <p className="result-text" style={{ marginTop: 10 }}>
+              <p className="result-text cn-clamp-3" style={{ marginTop: 10 }}>
                 目前没有某一个环节特别突出。建议先从“复习和订正有没有被挤掉”开始看起。
               </p>
             )}
@@ -210,32 +228,46 @@ export default function CnResultPage() {
 
         <section className="result-module">
           <h2 className="result-h2">现在最重要的不是继续加量</h2>
-          <p className="result-text">
-            很多家庭到了这个阶段，最容易做的事情是继续加量。<br />
-            但真正需要先确认的是：今天必须做的是什么，可以暂时减少的是什么，家长该帮到哪里为止，复习和订正要怎么重新放回日常节奏里。<br />
-            如果顺序没有整理好，学习时间越长，家庭反而越累。
+          <p className="result-text cn-clamp-3">
+            这时候最容易做的，是继续加量。
+            但更重要的是先把顺序理清：今天必须做什么、哪些可以先减一点、复习和订正怎么回到日常里。
           </p>
         </section>
 
         <section className="result-module result-cta">
-          <h2 className="result-cta-title">想进一步确认你家现在该先调整哪里？</h2>
+          <h2 className="result-cta-title">想进一步确认家庭学习情况？</h2>
           <div className="result-cta-body">
             <p className="result-text">
-              可以添加微信，把诊断结果截图发来。<br />
-              请一起发送：孩子年级、所在塾、目前最困扰的一件事。<br />
-              我会先帮你看：现在最应该优先整理的是哪一块。
+              添加微信后，请发送诊断ID。
+              我会根据结果，帮你一起确认现在最需要先整理的地方。
             </p>
           </div>
-          <div className="result-btn-row" style={{ justifyContent: "flex-start" }}>
-            <a className="lp-cta" href={wechatUrl} target="_blank" rel="noopener noreferrer">
-              添加微信咨询
-            </a>
+          <div className="cn-wechat-qr">
+            <Image src="/wechat-qr.jpg" alt="微信二维码" width={520} height={520} />
+            <div className="cn-wechat-qr-note">扫码添加微信</div>
           </div>
-          {wechatId ? (
-            <p className="result-text" style={{ marginTop: 10, fontSize: 13, color: "#6E6A64" }}>
-              微信号：{wechatId}
-            </p>
-          ) : null}
+          <div style={{ marginTop: 12 }} className="cn-wechat-row">
+            <div className="cn-wechat-meta">
+              <div>微信号：{WECHAT_ID}</div>
+              {diagnosisId ? <div>诊断ID：{diagnosisId}</div> : null}
+            </div>
+            <div className="cn-wechat-actions">
+              <button
+                type="button"
+                className="cn-wechat-btn"
+                onClick={async () => {
+                  const lines: string[] = [`微信号：${WECHAT_ID}`];
+                  if (diagnosisId) lines.push(`诊断ID：${diagnosisId}`);
+                  const ok = await copyText(lines.join("\n"));
+                  if (!ok) return;
+                  setCopiedId("message");
+                  window.setTimeout(() => setCopiedId(""), 1200);
+                }}
+              >
+                {copiedId === "message" ? "已复制" : "复制咨询信息"}
+              </button>
+            </div>
+          </div>
           <p className="result-text" style={{ marginTop: 6, fontSize: 13, color: "#6E6A64" }}>
             仅面向在日华人中学受験家庭。
           </p>
