@@ -126,6 +126,7 @@ export default function CnDiagnosisPage() {
   };
 
   const goNext = () => {
+    if (submitting) return;
     setSubmitError("");
     setProfileErrors({});
     setQuestionErrorId(null);
@@ -161,6 +162,7 @@ export default function CnDiagnosisPage() {
   };
 
   const goPrev = () => {
+    if (submitting) return;
     if (step === 0) return router.push("/cn");
     const nextStep = Math.max(0, step - 1);
     setStep(nextStep);
@@ -168,6 +170,7 @@ export default function CnDiagnosisPage() {
   };
 
   const submit = async () => {
+    if (submitting) return;
     setSubmitError("");
     setProfileErrors({});
     setQuestionErrorId(null);
@@ -243,7 +246,7 @@ export default function CnDiagnosisPage() {
         | null;
 
       if (!res.ok) {
-        setSubmitError(apiJson?.error || "保存失败，请稍后再试");
+        setSubmitError(apiJson?.error || "诊断结果生成失败，请稍后再试。");
         setSubmitting(false);
         return;
       }
@@ -251,7 +254,7 @@ export default function CnDiagnosisPage() {
       const sheetOk = apiJson?.gas?.sheetOk;
       const mailOk = apiJson?.gas?.mailOk;
       if (sheetOk === false && mailOk === false) {
-        setSubmitError(apiJson?.gas?.sheetError || apiJson?.gas?.mailError || "保存失败，请稍后再试");
+        setSubmitError(apiJson?.gas?.sheetError || apiJson?.gas?.mailError || "诊断结果生成失败，请稍后再试。");
         setSubmitting(false);
         return;
       }
@@ -282,7 +285,7 @@ export default function CnDiagnosisPage() {
       setSubmitting(false);
       router.push("/cn/result");
     } catch {
-      setSubmitError("保存失败，请稍后再试");
+      setSubmitError("诊断结果生成失败，请稍后再试。");
       setSubmitting(false);
     }
   };
@@ -290,7 +293,7 @@ export default function CnDiagnosisPage() {
   return (
     <div className="form-page cn-page">
       <header className="topbar">
-        <button type="button" onClick={goPrev}>
+        <button type="button" onClick={goPrev} disabled={submitting} aria-disabled={submitting}>
           ← 返回
         </button>
         <b>{isSp ? `${end} / 18` : ""}</b>
@@ -386,19 +389,25 @@ export default function CnDiagnosisPage() {
       </main>
 
       <div className="bottom-nav">
-        <button type="button" className="secondary" onClick={goPrev}>
+        <button type="button" className="secondary" onClick={goPrev} disabled={submitting} aria-disabled={submitting}>
           返回
         </button>
         {isSp && end < totalQuestions ? (
-          <button type="button" className="primary" onClick={goNext}>
+          <button type="button" className="primary" onClick={goNext} disabled={submitting} aria-disabled={submitting}>
             下一页
           </button>
         ) : (
           <button type="button" className="primary" disabled={submitting} onClick={submit}>
-            {submitting ? "提交中..." : "查看结果"}
+            {submitting ? "正在生成诊断结果..." : "查看结果"}
           </button>
         )}
       </div>
+
+      {submitting ? (
+        <div style={{ padding: "8px 20px 16px", color: "#6E6A64", fontWeight: 600 }}>
+          正在生成结果，请不要关闭页面。
+        </div>
+      ) : null}
 
       {submitError ? <div style={{ padding: "0 20px 16px", color: "#b42318", fontWeight: 800 }}>{submitError}</div> : null}
     </div>

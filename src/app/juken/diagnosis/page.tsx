@@ -142,6 +142,7 @@ export default function JukenDiagnosisPage() {
   };
 
   const goNext = () => {
+    if (submitting) return;
     setSubmitError("");
     setProfileErrors({});
     setQuestionErrorId(null);
@@ -180,6 +181,7 @@ export default function JukenDiagnosisPage() {
   };
 
   const goPrev = () => {
+    if (submitting) return;
     if (step === 0) return router.push("/juken");
     const nextStep = Math.max(0, step - 1);
     setStep(nextStep);
@@ -187,6 +189,7 @@ export default function JukenDiagnosisPage() {
   };
 
   const submit = async () => {
+    if (submitting) return;
     setSubmitError("");
     setProfileErrors({});
     setQuestionErrorId(null);
@@ -271,7 +274,7 @@ export default function JukenDiagnosisPage() {
         | null;
 
       if (!res.ok) {
-        setSubmitError(apiJson?.error || "結果の保存に失敗しました。");
+        setSubmitError(apiJson?.error || "診断結果の作成に失敗しました。時間をおいて再度お試しください。");
         setSubmitting(false);
         return;
       }
@@ -280,7 +283,11 @@ export default function JukenDiagnosisPage() {
       const mailOk = apiJson?.gas?.mailOk;
       const hasAnyOk = sheetOk === true || mailOk === true;
       if (sheetOk === false && mailOk === false) {
-        setSubmitError(apiJson?.gas?.sheetError || apiJson?.gas?.mailError || "結果の保存に失敗しました。");
+        setSubmitError(
+          apiJson?.gas?.sheetError ||
+            apiJson?.gas?.mailError ||
+            "診断結果の作成に失敗しました。時間をおいて再度お試しください。"
+        );
         setSubmitting(false);
         return;
       }
@@ -288,7 +295,11 @@ export default function JukenDiagnosisPage() {
       // If GAS didn't return a parseable JSON, still allow the flow (web result is local),
       // but if it DID return and both failed, we already returned above.
       if (!hasAnyOk && apiJson?.gas) {
-        setSubmitError(apiJson?.gas?.sheetError || apiJson?.gas?.mailError || "結果の保存に失敗しました。");
+        setSubmitError(
+          apiJson?.gas?.sheetError ||
+            apiJson?.gas?.mailError ||
+            "診断結果の作成に失敗しました。時間をおいて再度お試しください。"
+        );
         setSubmitting(false);
         return;
       }
@@ -319,7 +330,7 @@ export default function JukenDiagnosisPage() {
       setSubmitting(false);
       router.push("/juken/result");
     } catch {
-      setSubmitError("結果の保存に失敗しました。");
+      setSubmitError("診断結果の作成に失敗しました。時間をおいて再度お試しください。");
       setSubmitting(false);
     }
   };
@@ -327,7 +338,7 @@ export default function JukenDiagnosisPage() {
   return (
     <div className="form-page">
       <header className="topbar">
-        <button type="button" onClick={goPrev}>
+        <button type="button" onClick={goPrev} disabled={submitting} aria-disabled={submitting}>
           ← 戻る
         </button>
         <b>{isSp ? `${end} / 18` : ""}</b>
@@ -432,19 +443,25 @@ export default function JukenDiagnosisPage() {
       </main>
 
       <div className="bottom-nav">
-        <button type="button" className="secondary" onClick={goPrev}>
+        <button type="button" className="secondary" onClick={goPrev} disabled={submitting} aria-disabled={submitting}>
           戻る
         </button>
         {isSp && end < totalQuestions ? (
-          <button type="button" className="primary" onClick={goNext}>
+          <button type="button" className="primary" onClick={goNext} disabled={submitting} aria-disabled={submitting}>
             次へ
           </button>
         ) : (
           <button type="button" className="primary" disabled={submitting} onClick={submit}>
-            {submitting ? "送信中..." : "診断結果を見る"}
+            {submitting ? "診断結果を作成中..." : "診断結果を見る"}
           </button>
         )}
       </div>
+
+      {submitting ? (
+        <div style={{ padding: "8px 20px 16px", color: "#6E6A64", fontWeight: 600 }}>
+          結果を作成しています。このままお待ちください。
+        </div>
+      ) : null}
 
       {submitError ? (
         <div style={{ padding: "0 20px 16px", color: "#b42318", fontWeight: 800 }}>{submitError}</div>
