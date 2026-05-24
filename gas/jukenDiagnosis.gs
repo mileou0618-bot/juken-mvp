@@ -2,8 +2,14 @@ const SPREADSHEET_ID = "1-UhodlWz4ViAJH5ZGaqSO4meh7lRkzn7m9QlK-jvIbo";
 const SHEET_NAME = "diagnosis_data_v2";
 const FOLLOWUP_SHEET_NAME = "followup_answers";
 const PACKAGE_SHEET_NAME = "package_outputs";
-// Optional (Phase later): Google Docs template + output folder.
-// Leave empty to skip PDF generation without failing.
+// Google Docs template + PDF output folder (Phase: learning package PDF).
+// IMPORTANT: Do NOT commit real IDs. Fill these in Apps Script editor or Script Properties.
+// Recommended: set Script Properties:
+// - PACKAGE_TEMPLATE_DOC_ID
+// - PACKAGE_OUTPUT_FOLDER_ID
+const PACKAGE_TEMPLATE_DOC_ID = "填写Google Docs模板ID";
+const PACKAGE_OUTPUT_FOLDER_ID = "填写PDF输出文件夹ID";
+// Backward-compatible legacy keys (keep empty).
 const PACKAGE_DOC_TEMPLATE_ID = "";
 const PACKAGE_PDF_FOLDER_ID = "";
 
@@ -85,6 +91,11 @@ function doPost(e) {
       if (payload && payload.action === "generateLearningPackage") {
         var pkg = generateLearningPackage(safeString(payload.diagnosisId).trim());
         return jsonResponse(pkg);
+      }
+      // package PDF generation branch (internal use)
+      if (payload && payload.action === "generatePackagePdf") {
+        var pdf = generateLearningPackagePdf(safeString(payload.diagnosisId).trim());
+        return jsonResponse(pdf);
       }
 
       appendToSheet(payload);
@@ -206,10 +217,53 @@ function getPackageHeaders() {
     "day7_focus",
     "day7_parent_check",
     "payment_status",
+    // Added later: keep near output URLs
+    "doc_url",
     "pdf_status",
     "sent_status",
     "pdf_url",
   ];
+}
+
+function getScriptProperty_(key, fallback) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var v = props.getProperty(key);
+    if (v && safeString(v).trim() !== "") return safeString(v).trim();
+  } catch (e) {
+    // ignore
+  }
+  return safeString(fallback).trim();
+}
+
+function getDiagnosisDocTemplateId_() {
+  // Prefer Script Properties to avoid committing IDs.
+  // Script property keys:
+  // - PACKAGE_TEMPLATE_DOC_ID
+  // - PACKAGE_OUTPUT_FOLDER_ID
+  // (legacy)
+  // - PACKAGE_DOC_TEMPLATE_ID
+  var fromNewKey = getScriptProperty_("PACKAGE_TEMPLATE_DOC_ID", "");
+  if (fromNewKey) return fromNewKey;
+
+  var fromLegacyKey = getScriptProperty_("PACKAGE_DOC_TEMPLATE_ID", "");
+  if (fromLegacyKey) return fromLegacyKey;
+
+  var fallback = PACKAGE_TEMPLATE_DOC_ID !== "填写Google Docs模板ID" ? PACKAGE_TEMPLATE_DOC_ID : "";
+  if (fallback) return safeString(fallback).trim();
+  return safeString(PACKAGE_DOC_TEMPLATE_ID).trim();
+}
+
+function getPdfFolderId_() {
+  var fromNewKey = getScriptProperty_("PACKAGE_OUTPUT_FOLDER_ID", "");
+  if (fromNewKey) return fromNewKey;
+
+  var fromLegacyKey = getScriptProperty_("PACKAGE_PDF_FOLDER_ID", "");
+  if (fromLegacyKey) return fromLegacyKey;
+
+  var fallback = PACKAGE_OUTPUT_FOLDER_ID !== "填写PDF输出文件夹ID" ? PACKAGE_OUTPUT_FOLDER_ID : "";
+  if (fallback) return safeString(fallback).trim();
+  return safeString(PACKAGE_PDF_FOLDER_ID).trim();
 }
 
 function submitFollowup(payload) {
@@ -227,16 +281,35 @@ function submitFollowup(payload) {
 
   // Best-effort: generate package immediately (does not block followup save).
   var packageResult = null;
+  var packageGenerated = false;
   try {
     packageResult = generateLearningPackage(diagnosisId);
+    packageGenerated = !!(packageResult && packageResult.ok === true);
   } catch (e) {
     packageResult = { ok: false, error: "PACKAGE_GENERATION_FAILED", message: safeString(e && e.message ? e.message : e) };
+  }
+
+  // Best-effort: generate Google Docs (must) + PDF (optional). Never block followup save.
+  var docGenerated = false;
+  var pdfGenerated = false;
+  var pdfError = "";
+  try {
+    var pdfResult = generateLearningPackagePdf(diagnosisId);
+    docGenerated = !!(pdfResult && pdfResult.docGenerated === true);
+    pdfGenerated = !!(pdfResult && pdfResult.pdfGenerated === true);
+    pdfError = safeString(pdfResult && pdfResult.pdfError ? pdfResult.pdfError : "");
+  } catch (e2) {
+    pdfError = safeString(e2 && e2.message ? e2.message : e2) || "PDF generation failed";
   }
 
   return {
     ok: true,
     followupSaved: true,
     diagnosisId: diagnosisId,
+    packageGenerated: packageGenerated,
+    docGenerated: docGenerated,
+    pdfGenerated: pdfGenerated,
+    pdfError: pdfError,
     package: packageResult,
   };
 }
@@ -296,6 +369,372 @@ function getHeaders() {
     "answersJson",
     "thisWeekAction",
   ];
+}
+
+function getLatestRowByKey_(sheet, keyHeader, keyValue) {
+  var id = safeString(keyValue).trim();
+  if (!id) return null;
+
+  var range = sheet.getDataRange();
+  var allValues = range.getValues();
+  if (!allValues || allValues.length < 2) return null;
+
+  var headers = allValues[0].map(function (v) { return safeString(v).trim(); });
+  var idx = headers.indexOf(keyHeader);
+  if (idx < 0) return null;
+
+  var rows = allValues.slice(1);
+  var lastMatch = null;
+  for (var i = 0; i < rows.length; i++) {
+    if (safeString(rows[i][idx]).trim() === id) {
+      lastMatch = rows[i];
+    }
+  }
+  if (!lastMatch) return null;
+  return { headers: headers, row: lastMatch };
+}
+
+function getLatestPackage_(diagnosisId) {
+  var sheet = getOrCreateSheet_(PACKAGE_SHEET_NAME, getPackageHeaders());
+  return getLatestRowByKey_(sheet, "diagnosis_id", diagnosisId);
+}
+
+function escapeForReplaceText_(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceAllDocVars_(doc, vars) {
+  var body = doc.getBody();
+  Object.keys(vars).forEach(function (key) {
+    var value = vars[key];
+    var pattern = "\\{\\{" + escapeForReplaceText_(key) + "\\}\\}";
+    body.replaceText(pattern, safeString(value));
+  });
+}
+
+function removeLeadingTemplateTitle_(doc, templateTitleCandidates) {
+  var body = doc.getBody();
+  if (!body) return;
+
+  var candidates = (templateTitleCandidates || [])
+    .map(function (s) { return safeString(s).trim(); })
+    .filter(function (s) { return s !== ""; });
+
+  // Also remove common template marker if present.
+  candidates.push("Juken_7Day_Template");
+
+  function isRemovableParagraph_(p) {
+    if (!p) return false;
+    var t = safeString(p.getText()).trim();
+    if (t === "") return true;
+    for (var i = 0; i < candidates.length; i++) {
+      if (t === candidates[i]) return true;
+    }
+    return false;
+  }
+
+  // Remove empty/title paragraphs at the very top so PDF starts from actual content.
+  // This avoids a blank first page that only contains the template filename/title.
+  while (body.getNumChildren() > 0) {
+    var child = body.getChild(0);
+    var type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      var p = child.asParagraph();
+      if (isRemovableParagraph_(p)) {
+        body.removeChild(child);
+        continue;
+      }
+    }
+    if (type === DocumentApp.ElementType.TABLE) {
+      var t = safeString(child.asTable().getText()).trim();
+      if (t === "") {
+        body.removeChild(child);
+        continue;
+      }
+      for (var j = 0; j < candidates.length; j++) {
+        if (t === candidates[j]) {
+          body.removeChild(child);
+          continue;
+        }
+      }
+    }
+    break;
+  }
+}
+
+function clearHeaderFooterIfExactMatch_(doc, templateTitleCandidates) {
+  var candidates = (templateTitleCandidates || [])
+    .map(function (s) { return safeString(s).trim(); })
+    .filter(function (s) { return s !== ""; });
+
+  // Common template marker.
+  candidates.push("Juken_7Day_Template");
+
+  function clearIfMatch_(section) {
+    if (!section) return;
+    var t = safeString(section.getText()).trim();
+    if (!t) return;
+    for (var i = 0; i < candidates.length; i++) {
+      if (t === candidates[i]) {
+        // Only clear when the ENTIRE header/footer equals the template marker.
+        // This is a precise fix for the extra first-page title without touching real content.
+        section.clear();
+        return;
+      }
+    }
+  }
+
+  try {
+    clearIfMatch_(doc.getHeader());
+  } catch (e) {
+    // ignore
+  }
+  try {
+    clearIfMatch_(doc.getFooter());
+  } catch (e2) {
+    // ignore
+  }
+}
+
+function build7DayTableText_(pkg) {
+  var lines = [];
+  for (var d = 1; d <= 7; d++) {
+    var focus = safeString(pkg["day" + d + "_focus"]).trim();
+    var check = safeString(pkg["day" + d + "_parent_check"]).trim();
+    if (!focus && !check) continue;
+    lines.push("Day" + d + "：" + focus);
+    if (check) lines.push("  家长确认：" + check);
+  }
+  return lines.join("\n");
+}
+
+// Backward-compatible wrapper.
+function generatePackagePdf(diagnosisId) {
+  return generateLearningPackagePdf(diagnosisId);
+}
+
+// Spec name: generateLearningPackagePdf(diagnosisId)
+function generateLearningPackagePdf(diagnosisId) {
+  var id = safeString(diagnosisId).trim();
+  if (!id) return { ok: false, error: "BAD_REQUEST" };
+
+  var templateId = getDiagnosisDocTemplateId_();
+  var folderId = getPdfFolderId_();
+  if (!templateId) {
+    return { ok: false, error: "TEMPLATE_DOC_ID or OUTPUT_FOLDER_ID is missing", docGenerated: false, pdfGenerated: false };
+  }
+
+  // Ensure package exists; if missing, attempt to generate.
+  var pkg = getLatestPackage_(id);
+  if (!pkg) {
+    var gen = generateLearningPackage(id);
+    if (!gen || gen.ok !== true) return { ok: false, error: "package_outputs not found for diagnosisId" };
+    pkg = getLatestPackage_(id);
+  }
+  if (!pkg) return { ok: false, error: "package_outputs not found for diagnosisId" };
+
+  var pkgHeaders = pkg.headers;
+  var pkgRow = pkg.row;
+  function p(key) {
+    var i = pkgHeaders.indexOf(key);
+    if (i < 0) return "";
+    return safeString(pkgRow[i]);
+  }
+
+  // Pull display fields from diagnosis + followup (best-effort).
+  var diagnosisSheet = getDiagnosisSheet();
+  var diagnosisFound = findRowByDiagnosisId_(diagnosisSheet, id);
+  var parentName = "";
+  var language = "cn";
+  if (diagnosisFound) {
+    parentName = getRowValue_(diagnosisFound.headers, diagnosisFound.row, "name");
+    language = safeString(getRowValue_(diagnosisFound.headers, diagnosisFound.row, "language")).trim() || language;
+  }
+
+  var followup = getLatestFollowup_(id);
+  var grade = "";
+  if (followup) {
+    var gi = followup.headers.indexOf("grade");
+    if (gi >= 0) grade = safeString(followup.row[gi]);
+  }
+
+  var folder = null;
+  if (folderId) {
+    try {
+      folder = DriveApp.getFolderById(folderId);
+    } catch (eFolder) {
+      folder = null;
+    }
+  }
+  var fileNameBase = "7天家庭学习整理包_" + id;
+
+  // 1) Copy template doc
+  var templateFile = DriveApp.getFileById(templateId);
+  var docFile = folder ? templateFile.makeCopy(fileNameBase, folder) : templateFile.makeCopy(fileNameBase);
+  var docId = docFile.getId();
+  Logger.log("[pkgpdf] templateFileId=" + templateFile.getId());
+  Logger.log("[pkgpdf] docFileId=" + docFile.getId());
+  Logger.log("[pkgpdf] copiedDocId=" + docId);
+
+  // 2) Replace vars
+  var doc = DocumentApp.openById(docId);
+  var vars = {
+    diagnosis_id: id,
+    diagnosis_type: p("diagnosis_type"),
+    parent_name: parentName ? parentName : (language === "cn" ? "家长" : "保護者様"),
+    grade: grade,
+    main_summary: p("main_summary"),
+    keep_1: p("keep_1"),
+    keep_2: p("keep_2"),
+    reduce_1: p("reduce_1"),
+    reduce_2: p("reduce_2"),
+    parent_check_1: p("parent_check_1"),
+    parent_check_2: p("parent_check_2"),
+    day1_focus: p("day1_focus"),
+    day1_parent_check: p("day1_parent_check"),
+    day2_focus: p("day2_focus"),
+    day2_parent_check: p("day2_parent_check"),
+    day3_focus: p("day3_focus"),
+    day3_parent_check: p("day3_parent_check"),
+    day4_focus: p("day4_focus"),
+    day4_parent_check: p("day4_parent_check"),
+    day5_focus: p("day5_focus"),
+    day5_parent_check: p("day5_parent_check"),
+    day6_focus: p("day6_focus"),
+    day6_parent_check: p("day6_parent_check"),
+    day7_focus: p("day7_focus"),
+    day7_parent_check: p("day7_parent_check"),
+    day_table: build7DayTableText_({
+      day1_focus: p("day1_focus"),
+      day1_parent_check: p("day1_parent_check"),
+      day2_focus: p("day2_focus"),
+      day2_parent_check: p("day2_parent_check"),
+      day3_focus: p("day3_focus"),
+      day3_parent_check: p("day3_parent_check"),
+      day4_focus: p("day4_focus"),
+      day4_parent_check: p("day4_parent_check"),
+      day5_focus: p("day5_focus"),
+      day5_parent_check: p("day5_parent_check"),
+      day6_focus: p("day6_focus"),
+      day6_parent_check: p("day6_parent_check"),
+      day7_focus: p("day7_focus"),
+      day7_parent_check: p("day7_parent_check"),
+    }),
+  };
+  replaceAllDocVars_(doc, vars);
+  // If the template has a header/footer that only contains the template name,
+  // clear it so the exported PDF doesn't get an extra title-only first page.
+  clearHeaderFooterIfExactMatch_(doc, [templateFile.getName(), docFile.getName()]);
+  // Remove leading blank/title-only paragraphs (e.g., template filename) to avoid an empty first page.
+  removeLeadingTemplateTitle_(doc, [templateFile.getName(), docFile.getName()]);
+  doc.saveAndClose();
+
+  var docUrl = docFile.getUrl();
+  // 3) Update package_outputs with doc_url (even if PDF fails later).
+  try {
+    updatePackageOutputUrls_(id, { doc_url: docUrl });
+  } catch (docWriteErr) {
+    Logger.log("package_outputs doc_url update failed: " + safeString(docWriteErr));
+  }
+
+  // 4) Export to PDF (best-effort)
+  // Ensure we export from the COPIED document file, not the template file.
+  var exportedPdfSourceFileId = docFile.getId();
+  Logger.log("[pkgpdf] exportedPdfSourceFileId=" + exportedPdfSourceFileId);
+  Logger.log("[pkgpdf] exportMethod=Drive.Files.export");
+  // Allow Drive to reflect the latest doc edits before exporting.
+  Utilities.sleep(800);
+
+  // Export using Drive API export endpoint with OAuth token.
+  // Note: Advanced Drive Service's Drive.Files.export may require alt=media; UrlFetchApp is the most reliable way to get bytes.
+  var token = ScriptApp.getOAuthToken();
+  var exportUrl =
+    "https://www.googleapis.com/drive/v3/files/" +
+    encodeURIComponent(exportedPdfSourceFileId) +
+    "/export?mimeType=" +
+    encodeURIComponent("application/pdf");
+  Logger.log("[pkgpdf] exportUrl=" + exportUrl);
+  var exportRes = UrlFetchApp.fetch(exportUrl, {
+    method: "get",
+    headers: { Authorization: "Bearer " + token },
+    muteHttpExceptions: true,
+  });
+  var status = exportRes.getResponseCode();
+  Logger.log("[pkgpdf] exportStatus=" + status);
+  if (status < 200 || status >= 300) {
+    var errText = "";
+    try {
+      errText = exportRes.getContentText();
+    } catch (e) {
+      errText = safeString(e);
+    }
+    try {
+      updatePackageOutputUrls_(id, { pdf_status: "failed" });
+    } catch (statusErr) {
+      Logger.log("package_outputs pdf_status update failed: " + safeString(statusErr));
+    }
+    return {
+      ok: true,
+      diagnosisId: id,
+      docId: docId,
+      docUrl: docUrl,
+      docGenerated: true,
+      pdfGenerated: false,
+      pdfError: "Drive export failed: " + status,
+      debug: {
+        exportedPdfSourceFileId: exportedPdfSourceFileId,
+        status: status,
+        body: errText,
+      },
+    };
+  }
+
+  var pdfBlob = exportRes.getBlob().setName(fileNameBase + ".pdf");
+  var pdfFile = folder ? folder.createFile(pdfBlob) : DriveApp.createFile(pdfBlob);
+
+  var pdfUrl = pdfFile.getUrl();
+
+  try {
+    updatePackageOutputUrls_(id, { pdf_url: pdfUrl, pdf_status: "generated" });
+  } catch (writeErr2) {
+    Logger.log("package_outputs update failed: " + safeString(writeErr2));
+  }
+
+  return {
+    ok: true,
+    diagnosisId: id,
+    docId: docId,
+    docUrl: docUrl,
+    pdfFileId: pdfFile.getId(),
+    pdfUrl: pdfUrl,
+    docGenerated: true,
+    pdfGenerated: true,
+  };
+}
+
+function updatePackageOutputUrls_(diagnosisId, updates) {
+  var id = safeString(diagnosisId).trim();
+  if (!id) return;
+
+  var pkgSheet = getOrCreateSheet_(PACKAGE_SHEET_NAME, getPackageHeaders());
+  var all = pkgSheet.getDataRange().getValues();
+  if (!all || all.length < 2) return;
+
+  var headersRow = all[0].map(function (v) { return safeString(v).trim(); });
+  var idIdx = headersRow.indexOf("diagnosis_id");
+  if (idIdx < 0) return;
+
+  var lastRowIndex = -1;
+  for (var rr = 1; rr < all.length; rr++) {
+    if (safeString(all[rr][idIdx]).trim() === id) lastRowIndex = rr;
+  }
+  if (lastRowIndex < 1) return;
+
+  Object.keys(updates || {}).forEach(function (key) {
+    var col = headersRow.indexOf(key);
+    if (col < 0) return;
+    pkgSheet.getRange(lastRowIndex + 1, col + 1).setValue(safeString(updates[key]));
+  });
 }
 
 function ensureHeaders(sheet, headers) {
