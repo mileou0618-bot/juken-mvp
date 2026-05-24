@@ -37,8 +37,7 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
   // Keep diagnosisId in sync if user lands with query later.
   useEffect(() => {
-    if (!diagnosisId) return;
-    setForm((p) => (p.diagnosisId ? p : { ...p, diagnosisId }));
+    setForm((p) => ({ ...p, diagnosisId }));
   }, [diagnosisId]);
 
   const canSubmit =
@@ -83,9 +82,18 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
         }),
       });
 
-      const json = (await res.json().catch(() => null)) as any;
+      const text = await res.text().catch(() => "");
+      const json = (() => {
+        try {
+          return JSON.parse(text);
+        } catch {
+          return null;
+        }
+      })() as any;
+
       if (!res.ok) {
-        setError(String(json?.error || "提交失败，请稍后再试。"));
+        const details = json?.error || json?.message || text;
+        setError(String(details || "提交失败，请稍后再试。"));
         setSubmitting(false);
         return;
       }
@@ -97,6 +105,21 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
       setSubmitting(false);
     }
   };
+
+  if (!diagnosisId) {
+    return (
+      <main className="legal-page cn-page">
+        <h1 className="legal-title">未找到诊断ID。</h1>
+        <section className="legal-section">
+          <p style={{ margin: 0 }}>
+            请从诊断结果页进入补充问题页面。
+            <br />
+            （链接会自动携带诊断ID）
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   if (done) {
     return (
@@ -121,16 +144,9 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
       </p>
 
       <section className="legal-section">
-        <div className="field" id="field-diagnosisId">
-          <label>
-            诊断ID
-            <input
-              value={form.diagnosisId}
-              onChange={(e) => setForm((p) => ({ ...p, diagnosisId: e.target.value }))}
-              placeholder="例如：JUKEN-20260519-A8K3QZ"
-            />
-          </label>
-        </div>
+        <p className="result-text" style={{ margin: 0, color: "#5F5A52" }}>
+          诊断ID：{diagnosisId}
+        </p>
 
         <div className="field">
           <label>
@@ -228,4 +244,3 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
     </main>
   );
 }
-
