@@ -1,5 +1,11 @@
 const SPREADSHEET_ID = "1-UhodlWz4ViAJH5ZGaqSO4meh7lRkzn7m9QlK-jvIbo";
 const SHEET_NAME = "diagnosis_data_v2";
+const FOLLOWUP_SHEET_NAME = "followup_answers";
+const PACKAGE_SHEET_NAME = "package_outputs";
+// Optional (Phase later): Google Docs template + output folder.
+// Leave empty to skip PDF generation without failing.
+const PACKAGE_DOC_TEMPLATE_ID = "";
+const PACKAGE_PDF_FOLDER_ID = "";
 
 // Manual check helper (run this from Apps Script editor to verify ID + permissions)
 function testOpenSheet() {
@@ -70,6 +76,16 @@ function doPost(e) {
       if (payload && payload.action === "lookupDiagnosis") {
         return jsonResponse(lookupDiagnosis(payload));
       }
+      // followup submit + package generation branch
+      if (payload && payload.action === "submitFollowup") {
+        var followupResult = submitFollowup(payload);
+        return jsonResponse(followupResult);
+      }
+      // manual package generation branch (internal use)
+      if (payload && payload.action === "generateLearningPackage") {
+        var pkg = generateLearningPackage(safeString(payload.diagnosisId).trim());
+        return jsonResponse(pkg);
+      }
 
       appendToSheet(payload);
       sheetOk = true;
@@ -135,6 +151,94 @@ function appendToSheet(payload) {
 
   sheet.appendRow(row);
   return true;
+}
+
+function getOrCreateSheet_(sheetName, headers) {
+  var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = spreadsheet.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(sheetName);
+  }
+
+  // Initialize / append missing headers safely (do not overwrite existing user data).
+  ensureHeaders(sheet, headers);
+  return sheet;
+}
+
+function getFollowupHeaders() {
+  return [
+    "created_at",
+    "diagnosis_id",
+    "grade",
+    "juku_type",
+    "weekday_end_time",
+    "weak_subject",
+    "main_problem",
+    "parent_role",
+    "memo",
+  ];
+}
+
+function getPackageHeaders() {
+  return [
+    "created_at",
+    "diagnosis_id",
+    "diagnosis_type",
+    "main_summary",
+    "keep_1",
+    "keep_2",
+    "reduce_1",
+    "reduce_2",
+    "parent_check_1",
+    "parent_check_2",
+    "day1_focus",
+    "day1_parent_check",
+    "day2_focus",
+    "day2_parent_check",
+    "day3_focus",
+    "day3_parent_check",
+    "day4_focus",
+    "day4_parent_check",
+    "day5_focus",
+    "day5_parent_check",
+    "day6_focus",
+    "day6_parent_check",
+    "day7_focus",
+    "day7_parent_check",
+    "payment_status",
+    "pdf_status",
+    "sent_status",
+    "pdf_url",
+  ];
+}
+
+function submitFollowup(payload) {
+  var diagnosisId = safeString(payload.diagnosisId).trim();
+  if (!diagnosisId) return { ok: false, error: "BAD_REQUEST" };
+
+  var sheet = getOrCreateSheet_(FOLLOWUP_SHEET_NAME, getFollowupHeaders());
+  var headers = getFollowupHeaders();
+
+  var row = headers.map(function (key) {
+    return safeString(payload[key]);
+  });
+
+  sheet.appendRow(row);
+
+  // Best-effort: generate package immediately (does not block followup save).
+  var packageResult = null;
+  try {
+    packageResult = generateLearningPackage(diagnosisId);
+  } catch (e) {
+    packageResult = { ok: false, error: "PACKAGE_GENERATION_FAILED", message: safeString(e && e.message ? e.message : e) };
+  }
+
+  return {
+    ok: true,
+    followupSaved: true,
+    diagnosisId: diagnosisId,
+    package: packageResult,
+  };
 }
 
 function getHeaders() {
@@ -460,6 +564,209 @@ function lookupDiagnosis(payload) {
     },
     warning: warning || undefined,
   };
+}
+
+function findRowByDiagnosisId_(sheet, diagnosisId) {
+  var data = sheet.getDataRange().getValues();
+  if (!data || data.length < 2) return null;
+  var headers = data[0].map(function (v) { return safeString(v).trim(); });
+  var idx = headers.indexOf("diagnosisId");
+  if (idx < 0) return null;
+  var rows = data.slice(1);
+  for (var i = rows.length - 1; i >= 0; i--) {
+    if (safeString(rows[i][idx]).trim() === diagnosisId) return { headers: headers, row: rows[i] };
+  }
+  return null;
+}
+
+function getRowValue_(headers, row, key) {
+  var i = headers.indexOf(key);
+  if (i < 0) return "";
+  return safeString(row[i]);
+}
+
+function getLatestFollowup_(diagnosisId) {
+  var sheet = getOrCreateSheet_(FOLLOWUP_SHEET_NAME, getFollowupHeaders());
+  var data = sheet.getDataRange().getValues();
+  if (!data || data.length < 2) return null;
+  var headers = data[0].map(function (v) { return safeString(v).trim(); });
+  var idIdx = headers.indexOf("diagnosis_id");
+  if (idIdx < 0) return null;
+  var rows = data.slice(1);
+  for (var i = rows.length - 1; i >= 0; i--) {
+    if (safeString(rows[i][idIdx]).trim() === diagnosisId) {
+      return { headers: headers, row: rows[i] };
+    }
+  }
+  return null;
+}
+
+function normalizePackageType_(diagnosisType) {
+  var t = safeString(diagnosisType).trim();
+  // Phase 1 only supports 5 templates. Map unknowns to the closest safe bucket.
+  if (t === "負荷過多型") return t;
+  if (t === "表面努力型") return t;
+  if (t === "計画混乱型") return t;
+  if (t === "不安定型") return t;
+  // 親主導型 is not in legacy diagnosisType; if introduced later, keep it.
+  if (t === "親主導型") return t;
+  // Fallback: treat other legacy types as 表面努力型 (more neutral) for the early phase.
+  return "表面努力型";
+}
+
+function topDimensionsFromScores_(dimensions) {
+  var pairs = [
+    ["homework_load", Number(dimensions.homework_load || 0)],
+    ["review_retention", Number(dimensions.review_retention || 0)],
+    ["planning", Number(dimensions.planning || 0)],
+    ["parent_involvement", Number(dimensions.parent_involvement || 0)],
+    ["autonomy", Number(dimensions.autonomy || 0)],
+    ["mental_load", Number(dimensions.mental_load || 0)],
+  ];
+  pairs.sort(function (a, b) { return b[1] - a[1]; });
+  return pairs.slice(0, 2).map(function (p) { return p[0]; });
+}
+
+function cnLabelForDim_(dim) {
+  return cnDimensionLabel(dim);
+}
+
+function generateLearningPackage(diagnosisId) {
+  var id = safeString(diagnosisId).trim();
+  if (!id) return { ok: false, error: "BAD_REQUEST" };
+
+  var diagnosisSheet = getDiagnosisSheet();
+  var found = findRowByDiagnosisId_(diagnosisSheet, id);
+  if (!found) return { ok: false, error: "DIAGNOSIS_NOT_FOUND" };
+
+  var headers = found.headers;
+  var row = found.row;
+  var diagnosisType = getRowValue_(headers, row, "diagnosisType");
+  var packageType = normalizePackageType_(diagnosisType);
+
+  var dims = {
+    homework_load: Number(getRowValue_(headers, row, "homework_load") || 0),
+    review_retention: Number(getRowValue_(headers, row, "review_retention") || 0),
+    planning: Number(getRowValue_(headers, row, "planning") || 0),
+    parent_involvement: Number(getRowValue_(headers, row, "parent_involvement") || 0),
+    autonomy: Number(getRowValue_(headers, row, "autonomy") || 0),
+    mental_load: Number(getRowValue_(headers, row, "mental_load") || 0),
+  };
+
+  var followup = getLatestFollowup_(id);
+  var fHeaders = followup ? followup.headers : [];
+  var fRow = followup ? followup.row : null;
+
+  function f(key) {
+    if (!fRow) return "";
+    var i = fHeaders.indexOf(key);
+    if (i < 0) return "";
+    return safeString(fRow[i]);
+  }
+
+  var weakSubject = f("weak_subject");
+  var mainProblem = f("main_problem");
+  var weekdayEndTime = f("weekday_end_time");
+  var parentRole = f("parent_role");
+
+  var topDims = topDimensionsFromScores_(dims);
+  var top1 = cnLabelForDim_(topDims[0]);
+  var top2 = cnLabelForDim_(topDims[1]);
+
+  // ---- Rule-based content (CN, early phase) ----
+  var mainSummary =
+    "当前最大问题更接近：" +
+    (mainProblem ? mainProblem : "家庭学习顺序开始混乱") +
+    "。作业、复习和订正在互相挤压，容易变成“先把今天撑过去”。";
+  if (top1 || top2) {
+    mainSummary += "（本次突出：";
+    mainSummary += (top1 ? top1 : "");
+    if (top2) mainSummary += (top1 ? " / " : "") + top2;
+    mainSummary += "）";
+  }
+
+  var keep1 = weakSubject ? (weakSubject + "：错题回收（只抓关键2〜3题）") : "错题回收（只抓关键2〜3题）";
+  var keep2 = "塾指定必须提交的作业（先保证提交稳定）";
+
+  var reduce1 = weekdayEndTime ? ("超过 " + weekdayEndTime + " 之后的追加任务") : "深夜追加任务";
+  var reduce2 = "已经熟练的重复题（先暂停补量）";
+
+  var parentCheck1 = parentRole && parentRole.indexOf("基本管不了") >= 0 ? "今天卡在哪里" : "今天卡在哪里（不讲题，先定位）";
+  var parentCheck2 = "明天第一件事是什么（先说清楚再开始）";
+
+  var dayTemplates = build7DayTemplate_(packageType);
+
+  var out = {
+    created_at: new Date().toISOString(),
+    diagnosis_id: id,
+    diagnosis_type: packageType,
+    main_summary: mainSummary,
+    keep_1: keep1,
+    keep_2: keep2,
+    reduce_1: reduce1,
+    reduce_2: reduce2,
+    parent_check_1: parentCheck1,
+    parent_check_2: parentCheck2,
+    day1_focus: dayTemplates[0].focus,
+    day1_parent_check: dayTemplates[0].check,
+    day2_focus: dayTemplates[1].focus,
+    day2_parent_check: dayTemplates[1].check,
+    day3_focus: dayTemplates[2].focus,
+    day3_parent_check: dayTemplates[2].check,
+    day4_focus: dayTemplates[3].focus,
+    day4_parent_check: dayTemplates[3].check,
+    day5_focus: dayTemplates[4].focus,
+    day5_parent_check: dayTemplates[4].check,
+    day6_focus: dayTemplates[5].focus,
+    day6_parent_check: dayTemplates[5].check,
+    day7_focus: dayTemplates[6].focus,
+    day7_parent_check: dayTemplates[6].check,
+    payment_status: "",
+    pdf_status: "",
+    sent_status: "",
+    pdf_url: "",
+  };
+
+  // Write to package_outputs
+  var pkgSheet = getOrCreateSheet_(PACKAGE_SHEET_NAME, getPackageHeaders());
+  var pkgHeaders = getPackageHeaders();
+  var rowValues = pkgHeaders.map(function (k) { return safeString(out[k]); });
+  pkgSheet.appendRow(rowValues);
+
+  return { ok: true, diagnosisId: id, diagnosisType: packageType };
+}
+
+function build7DayTemplate_(packageType) {
+  var t = safeString(packageType).trim();
+  // Minimal, stable templates (no AI, no long schedules)
+  var base = [
+    { focus: "Day1：整理本周要做的清单（先分必做/可减）", check: "今天必做是什么？可减是什么？" },
+    { focus: "Day2：最卡科目只抓关键2〜3题（错题回收）", check: "今天回收了哪2〜3题？" },
+    { focus: "Day3：安排一次轻量复习（不加量，只回收）", check: "复习放回日常了吗？" },
+    { focus: "Day4：把“明天第一件事”固定下来", check: "明天第一件事是什么？" },
+    { focus: "Day5：测试前准备改成“少量回收”模式", check: "测试前是不是又开始赶？" },
+    { focus: "Day6：做一次任务减法（去掉重复/深夜任务）", check: "今天减少了哪一项？" },
+    { focus: "Day7：复盘：下周继续保留什么、减少什么", check: "下周要保留2件、减少2件是什么？" },
+  ];
+
+  if (t === "負荷過多型") {
+    base[1].focus = "Day2：先把宿题“减法”做出来（不要追全量）";
+    base[2].focus = "Day3：把复习/订正放回日常（每天一点点）";
+  } else if (t === "表面努力型") {
+    base[1].focus = "Day2：错题回收：只看“为什么错”+“怎么改”";
+    base[2].focus = "Day3：把“做完”改成“改完”";
+  } else if (t === "計画混乱型") {
+    base[0].focus = "Day1：整理顺序：先做什么、先不做什么";
+    base[3].focus = "Day4：每天固定一个开始流程（先从第一件事开始）";
+  } else if (t === "親主導型") {
+    base[3].focus = "Day4：把“下一步做什么”交给孩子说出来";
+    base[3].check = "孩子能说出下一步是什么吗？";
+  } else if (t === "不安定型") {
+    base[0].focus = "Day1：把学习开始流程固定（同一个时间/同一个顺序）";
+    base[4].focus = "Day5：测试前不要重启，改成小幅回收";
+  }
+
+  return base;
 }
 
 function normalizeSingleLine(text) {
