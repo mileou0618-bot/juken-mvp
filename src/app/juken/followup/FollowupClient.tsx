@@ -13,13 +13,13 @@ type FollowupPayload = {
   memo: string;
 };
 
-const JUKU_TYPES = ["SAPIX", "早稻田アカデミー", "四谷大塚", "日能研", "浜学園", "希学園", "其他"] as const;
-const END_TIME = ["20点前", "20-21点", "21-22点", "22-23点", "23点以后"] as const;
-const SUBJECTS = ["算数", "国语", "理科", "社会", "没有特别偏科"] as const;
-const MAIN_PROBLEMS = ["作业做不完", "做完但复习不了", "错题反复错", "家长不催就不动", "亲子冲突变多"] as const;
-const TRADEOFFS = ["塾作业太多", "错题太多", "测试复习来不及", "暗记类一直拖后", "家长不知道该不该减量"] as const;
+const JUKU_TYPES = ["SAPIX", "早稲田アカデミー", "四谷大塚", "日能研", "浜学園", "希学園", "その他"] as const;
+const END_TIME = ["20時前", "20-21時", "21-22時", "22-23時", "23時以降"] as const;
+const SUBJECTS = ["算数", "国語", "理科", "社会", "特に偏りなし"] as const;
+const MAIN_PROBLEMS = ["宿題が終わらない", "終わるが復習できない", "間違い直しが回らない", "声かけがないと動かない", "親子の衝突が増えた"] as const;
+const TRADEOFFS = ["塾の宿題が多すぎる", "間違い直しが多すぎる", "テスト直しが間に合わない", "暗記系が後回しになる", "減らす判断が難しい"] as const;
 
-export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosisId: string }) {
+export default function JukenFollowupClient({ initialDiagnosisId }: { initialDiagnosisId: string }) {
   const diagnosisId = (initialDiagnosisId || "").trim();
 
   const [form, setForm] = useState<FollowupPayload>({
@@ -36,7 +36,6 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
-  // Keep diagnosisId in sync if user lands with query later.
   useEffect(() => {
     setForm((p) => ({ ...p, diagnosisId }));
   }, [diagnosisId]);
@@ -53,13 +52,12 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
   const onSubmit = async () => {
     if (submitting) return;
     setError("");
-
     if (!form.diagnosisId) {
-      setError("无法识别诊断ID，请从结果页的链接进入。");
+      setError("診断IDを取得できませんでした。結果ページから開いてください。");
       return;
     }
     if (!canSubmit) {
-      setError("请先填写完 6 个问题。");
+      setError("6つの質問にすべて回答してください。");
       return;
     }
 
@@ -70,7 +68,7 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "submitFollowup",
-          language: "cn",
+          language: "jp",
           created_at: new Date().toISOString(),
           diagnosisId: form.diagnosisId,
           diagnosis_id: form.diagnosisId,
@@ -95,7 +93,7 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
       if (!res.ok) {
         const details = json?.error || json?.message || text;
-        setError(String(details || "提交失败，请稍后再试。"));
+        setError(String(details || "送信に失敗しました。しばらくして再度お試しください。"));
         setSubmitting(false);
         return;
       }
@@ -103,21 +101,17 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
       setDone(true);
       setSubmitting(false);
     } catch {
-      setError("提交失败，请稍后再试。");
+      setError("送信に失敗しました。しばらくして再度お試しください。");
       setSubmitting(false);
     }
   };
 
   if (!diagnosisId) {
     return (
-      <main className="legal-page cn-page">
-        <h1 className="legal-title">未找到诊断ID。</h1>
+      <main className="legal-page">
+        <h1 className="legal-title">診断IDが見つかりませんでした。</h1>
         <section className="legal-section">
-          <p style={{ margin: 0 }}>
-            请从诊断结果页进入补充问题页面。
-            <br />
-            （链接会自动携带诊断ID）
-          </p>
+          <p style={{ margin: 0 }}>診断結果ページから、補足質問ページを開いてください。</p>
         </section>
       </main>
     );
@@ -125,49 +119,45 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
   if (done) {
     return (
-      <main className="legal-page cn-page">
-        <h1 className="legal-title">已收到补充信息。</h1>
+      <main className="legal-page">
+        <h1 className="legal-title">受け付けました。</h1>
         <section className="legal-section">
-          <p style={{ margin: 0 }}>
-            正在整理 7 天家庭学习建议。
-            <br />
-            稍后我们会根据诊断结果进行确认。
-          </p>
+          <p style={{ margin: 0 }}>7日間の整理案を作成しています。</p>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="legal-page cn-page">
-      <h1 className="legal-title">补充 6 个问题</h1>
+    <main className="legal-page">
+      <h1 className="legal-title">追加 6 問</h1>
       <p className="result-text" style={{ marginTop: 10 }}>
-        这 6 个问题只用于把建议整理得更贴近你家的实际情况。
+        今週の「取捨選択」を判断するための補足質問です。
       </p>
 
       <section className="legal-section">
         <p className="result-text" style={{ margin: 0, color: "#5F5A52" }}>
-          诊断ID：{diagnosisId}
+          診断ID：{diagnosisId}
         </p>
 
         <div className="field">
           <label>
-            1. 孩子现在几年级？
+            Q1 現在の学年を教えてください
             <select value={form.gradeStage} onChange={(e) => setForm((p) => ({ ...p, gradeStage: e.target.value }))}>
-              <option value="">请选择</option>
-              <option>小学3年级</option>
-              <option>小学4年级</option>
-              <option>小学5年级</option>
-              <option>小学6年级</option>
+              <option value="">選択してください</option>
+              <option>小学3年生</option>
+              <option>小学4年生</option>
+              <option>小学5年生</option>
+              <option>小学6年生</option>
             </select>
           </label>
         </div>
 
         <div className="field">
           <label>
-            2. 目前主要上哪类补习班？
+            Q2 現在メインで通っている塾を教えてください
             <select value={form.jukuType} onChange={(e) => setForm((p) => ({ ...p, jukuType: e.target.value }))}>
-              <option value="">请选择</option>
+              <option value="">選択してください</option>
               {JUKU_TYPES.map((v) => (
                 <option key={v}>{v}</option>
               ))}
@@ -177,9 +167,9 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
         <div className="field">
           <label>
-            3. 平日通常学习到几点结束？
+            Q3 平日はだいたい何時頃まで勉強していますか？
             <select value={form.studyEndTime} onChange={(e) => setForm((p) => ({ ...p, studyEndTime: e.target.value }))}>
-              <option value="">请选择</option>
+              <option value="">選択してください</option>
               {END_TIME.map((v) => (
                 <option key={v}>{v}</option>
               ))}
@@ -189,9 +179,9 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
         <div className="field">
           <label>
-            4. 这一周最卡的是哪一科？
+            Q4 今いちばん止まりやすい科目はどれですか？
             <select value={form.hardestSubject} onChange={(e) => setForm((p) => ({ ...p, hardestSubject: e.target.value }))}>
-              <option value="">请选择</option>
+              <option value="">選択してください</option>
               {SUBJECTS.map((v) => (
                 <option key={v}>{v}</option>
               ))}
@@ -201,9 +191,12 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
         <div className="field">
           <label>
-            5. 现在最接近的问题是哪一个？
-            <select value={form.currentMainProblem} onChange={(e) => setForm((p) => ({ ...p, currentMainProblem: e.target.value }))}>
-              <option value="">请选择</option>
+            Q5 今の状態に最も近いものを選んでください
+            <select
+              value={form.currentMainProblem}
+              onChange={(e) => setForm((p) => ({ ...p, currentMainProblem: e.target.value }))}
+            >
+              <option value="">選択してください</option>
               {MAIN_PROBLEMS.map((v) => (
                 <option key={v}>{v}</option>
               ))}
@@ -213,9 +206,12 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
         <div className="field">
           <label>
-            6. 这一周最难取舍的是哪一类内容？
-            <select value={form.hardestTradeoff} onChange={(e) => setForm((p) => ({ ...p, hardestTradeoff: e.target.value }))}>
-              <option value="">请选择</option>
+            Q6 今週いちばん「減らすか迷っているもの」は何ですか？
+            <select
+              value={form.hardestTradeoff}
+              onChange={(e) => setForm((p) => ({ ...p, hardestTradeoff: e.target.value }))}
+            >
+              <option value="">選択してください</option>
               {TRADEOFFS.map((v) => (
                 <option key={v}>{v}</option>
               ))}
@@ -225,11 +221,11 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
         <div className="field">
           <label>
-            备注（可选）
+            メモ（任意）
             <textarea
               value={form.memo}
               onChange={(e) => setForm((p) => ({ ...p, memo: e.target.value }))}
-              placeholder="例如：最近作业量明显增加、孩子睡眠不足等"
+              placeholder="例：今週はテストが多い、算数が重い等"
               rows={4}
             />
           </label>
@@ -239,10 +235,11 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
         <div style={{ marginTop: 14 }}>
           <button type="button" className="cta" disabled={submitting} onClick={onSubmit}>
-            {submitting ? "提交中..." : "提交补充信息"}
+            {submitting ? "送信中..." : "送信する"}
           </button>
         </div>
       </section>
     </main>
   );
 }
+

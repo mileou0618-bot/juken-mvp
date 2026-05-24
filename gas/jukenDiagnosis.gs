@@ -180,13 +180,20 @@ function getFollowupHeaders() {
   return [
     "created_at",
     "diagnosis_id",
-    "grade",
+    // New (v2) followup fields (prioritized)
+    "grade_stage",
     "juku_type",
+    "study_end_time",
+    "hardest_subject",
+    "current_main_problem",
+    "hardest_tradeoff",
+    "memo",
+    // Legacy fields kept for backward compatibility
+    "grade",
     "weekday_end_time",
     "weak_subject",
     "main_problem",
     "parent_role",
-    "memo",
   ];
 }
 
@@ -271,10 +278,22 @@ function submitFollowup(payload) {
   if (!diagnosisId) return { ok: false, error: "BAD_REQUEST" };
 
   var sheet = getOrCreateSheet_(FOLLOWUP_SHEET_NAME, getFollowupHeaders());
-  var headers = getFollowupHeaders();
+  // Ensure new headers exist, but DO NOT reorder existing headers.
+  ensureHeaders(sheet, getFollowupHeaders());
+  var lastCol = sheet.getLastColumn();
+  var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  headers = headers.map(function (v) { return safeString(v).trim(); });
+
+  // Normalize payload keys (support both camelCase and snake_case).
+  var normalized = {};
+  Object.keys(payload || {}).forEach(function (k) {
+    normalized[k] = payload[k];
+  });
+  if (!normalized.created_at) normalized.created_at = payload.createdAt || new Date().toISOString();
+  if (!normalized.diagnosis_id) normalized.diagnosis_id = payload.diagnosis_id || diagnosisId;
 
   var row = headers.map(function (key) {
-    return safeString(payload[key]);
+    return safeString(normalized[key]);
   });
 
   sheet.appendRow(row);
@@ -1107,6 +1126,17 @@ function generateLearningPackage(diagnosisId) {
   var mainProblem = f("main_problem");
   var weekdayEndTime = f("weekday_end_time");
   var parentRole = f("parent_role");
+  // New v2 keys (preferred)
+  var gradeStage = f("grade_stage");
+  var studyEndTime = f("study_end_time");
+  var hardestSubject = f("hardest_subject");
+  var currentMainProblem = f("current_main_problem");
+  var hardestTradeoff = f("hardest_tradeoff");
+
+  // Prefer new values, fallback to legacy if empty.
+  var effectiveMainProblem = currentMainProblem || mainProblem;
+  var effectiveEndTime = studyEndTime || weekdayEndTime;
+  var effectiveHardestSubject = hardestSubject || weakSubject;
 
   var topDims = topDimensionsFromScores_(dims);
   var top1 = cnLabelForDim_(topDims[0]);
@@ -1115,7 +1145,7 @@ function generateLearningPackage(diagnosisId) {
   // ---- Rule-based content (CN, early phase) ----
   var mainSummary =
     "当前最大问题更接近：" +
-    (mainProblem ? mainProblem : "家庭学习顺序开始混乱") +
+    (effectiveMainProblem ? effectiveMainProblem : "家庭学习顺序开始混乱") +
     "。作业、复习和订正在互相挤压，容易变成“先把今天撑过去”。";
   if (top1 || top2) {
     mainSummary += "（本次突出：";
@@ -1124,10 +1154,12 @@ function generateLearningPackage(diagnosisId) {
     mainSummary += "）";
   }
 
-  var keep1 = weakSubject ? (weakSubject + "：错题回收（只抓关键2〜3题）") : "错题回收（只抓关键2〜3题）";
+  var keep1 = effectiveHardestSubject
+    ? (effectiveHardestSubject + "：错题回收（只抓关键2〜3题）")
+    : "错题回收（只抓关键2〜3题）";
   var keep2 = "塾指定必须提交的作业（先保证提交稳定）";
 
-  var reduce1 = weekdayEndTime ? ("超过 " + weekdayEndTime + " 之后的追加任务") : "深夜追加任务";
+  var reduce1 = effectiveEndTime ? ("超过 " + effectiveEndTime + " 之后的追加任务") : "深夜追加任务";
   var reduce2 = "已经熟练的重复题（先暂停补量）";
 
   var parentCheck1 = parentRole && parentRole.indexOf("基本管不了") >= 0 ? "今天卡在哪里" : "今天卡在哪里（不讲题，先定位）";
