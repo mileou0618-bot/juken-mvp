@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 
 type FollowupPayload = {
   diagnosisId: string;
@@ -9,15 +10,15 @@ type FollowupPayload = {
   studyEndTime: string;
   hardestSubject: string;
   currentMainProblem: string;
-  hardestTradeoff: string;
+  sacrificedArea: string;
   memo: string;
 };
 
 const JUKU_TYPES = ["SAPIX", "早稻田アカデミー", "四谷大塚", "日能研", "浜学園", "希学園", "其他"] as const;
 const END_TIME = ["20点前", "20-21点", "21-22点", "22-23点", "23点以后"] as const;
 const SUBJECTS = ["算数", "国语", "理科", "社会", "没有特别偏科"] as const;
-const MAIN_PROBLEMS = ["作业做不完", "做完但复习不了", "错题反复错", "家长不催就不动", "亲子冲突变多"] as const;
-const TRADEOFFS = ["塾作业太多", "错题太多", "测试复习来不及", "暗记类一直拖后", "家长不知道该不该减量"] as const;
+const MAIN_PROBLEMS = ["作业做不完", "做完但没时间复习", "错题反复错", "家长不催就不动", "亲子冲突变多", "最近成绩/偏差值下降"] as const;
+const TRADEOFFS = ["错题整理", "复习", "暗记", "测试准备", "亲子关系的余裕", "睡眠和休息"] as const;
 
 export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosisId: string }) {
   const diagnosisId = (initialDiagnosisId || "").trim();
@@ -29,17 +30,32 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
     studyEndTime: "",
     hardestSubject: "",
     currentMainProblem: "",
-    hardestTradeoff: "",
+    sacrificedArea: "",
     memo: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [qrMissing, setQrMissing] = useState(false);
 
   // Keep diagnosisId in sync if user lands with query later.
   useEffect(() => {
     setForm((p) => ({ ...p, diagnosisId }));
   }, [diagnosisId]);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1800);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const copyText = useMemo(() => {
+    const lines = ["家庭学习整理"];
+    if (diagnosisId) lines.push(`诊断ID：${diagnosisId}`);
+    return lines.join("\n");
+  }, [diagnosisId]);
+  const displayDiagnosisId = diagnosisId || "未取得";
 
   const canSubmit =
     form.diagnosisId &&
@@ -48,7 +64,7 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
     form.studyEndTime &&
     form.hardestSubject &&
     form.currentMainProblem &&
-    form.hardestTradeoff;
+    form.sacrificedArea;
 
   const onSubmit = async () => {
     if (submitting) return;
@@ -79,7 +95,8 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
           study_end_time: form.studyEndTime,
           hardest_subject: form.hardestSubject,
           current_main_problem: form.currentMainProblem,
-          hardest_tradeoff: form.hardestTradeoff,
+          sacrificed_area: form.sacrificedArea,
+          hardest_tradeoff: form.sacrificedArea,
           memo: form.memo || "",
         }),
       });
@@ -94,8 +111,10 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
       })() as any;
 
       if (!res.ok) {
-        const details = json?.error || json?.message || text;
-        setError(String(details || "提交失败，请稍后再试。"));
+        // Avoid dumping HTML error pages into UI (e.g. Next.js runtime error pages).
+        // Keep details in console for debugging.
+        console.error("[cn/followup] submit failed", { status: res.status, text, json });
+        setError("提交失败，请稍后再试。");
         setSubmitting(false);
         return;
       }
@@ -126,12 +145,69 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
   if (done) {
     return (
       <main className="legal-page cn-page">
-        <h1 className="legal-title">已收到补充信息。</h1>
-        <section className="legal-section">
-          <p style={{ margin: 0 }}>
-            正在整理 7 天家庭学习建议。
-            <br />
-            稍后我们会根据诊断结果进行确认。
+        <h1 className="legal-title">已收到补充信息</h1>
+        <section className="legal-section" style={{ display: "grid", gap: 18 }}>
+          <p className="result-text" style={{ margin: 0 }}>
+            根据诊断结果和补充信息，我们会整理一份《7天家庭学习整理包》。
+          </p>
+
+          <div className="cn-wechat-qr" style={{ maxWidth: 240, margin: "0 auto" }}>
+            {!qrMissing ? (
+              <Image
+                src="/wechat-qr.jpg"
+                alt="微信二维码"
+                width={520}
+                height={520}
+                style={{ width: "100%", height: "auto", display: "block" }}
+                priority
+                onError={() => {
+                  console.warn("[cn/followup] wechat qr image missing: /wechat-qr.jpg");
+                  setQrMissing(true);
+                }}
+              />
+            ) : null}
+            <div className="cn-wechat-qr-note">扫码添加微信</div>
+          </div>
+
+          <div style={{ display: "grid", gap: 8 }}>
+            <h2 className="result-title" style={{ margin: 0, fontSize: "1.25rem" }}>
+              下一步：添加微信领取整理包
+            </h2>
+            <p className="result-text" style={{ margin: 0 }}>
+              请添加下方微信，并发送：
+            </p>
+            <p className="result-text" style={{ margin: 0, whiteSpace: "pre-line" }}>
+              {copyText}
+            </p>
+            <div className="result-text" style={{ margin: 0 }}>
+              微信号：<strong>Juken-family</strong>
+            </div>
+            <div className="result-text" style={{ margin: 0 }}>
+              诊断ID：{displayDiagnosisId}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+            <button
+              type="button"
+              className="cta"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(copyText);
+                  setCopied(true);
+                } catch (e) {
+                  console.error("[cn/followup] copy failed", e);
+                }
+              }}
+              style={{ width: "auto", minWidth: 180 }}
+            >
+              复制微信发送内容
+            </button>
+            <span style={{ color: "#7A6E5C", fontSize: 14 }}>{copied ? "已复制，请到微信发送" : ""}</span>
+          </div>
+
+          <p className="result-text" style={{ margin: 0, color: "#5F5A52" }}>
+            预计阅读时间：3分钟左右
           </p>
         </section>
       </main>
@@ -201,7 +277,7 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
         <div className="field">
           <label>
-            5. 现在最接近的问题是哪一个？
+            5. 现在最困扰的是哪一个？
             <select value={form.currentMainProblem} onChange={(e) => setForm((p) => ({ ...p, currentMainProblem: e.target.value }))}>
               <option value="">请选择</option>
               {MAIN_PROBLEMS.map((v) => (
@@ -213,8 +289,8 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
 
         <div className="field">
           <label>
-            6. 这一周最难取舍的是哪一类内容？
-            <select value={form.hardestTradeoff} onChange={(e) => setForm((p) => ({ ...p, hardestTradeoff: e.target.value }))}>
+            6. 最近最容易被挤掉的是哪一项？
+            <select value={form.sacrificedArea} onChange={(e) => setForm((p) => ({ ...p, sacrificedArea: e.target.value }))}>
               <option value="">请选择</option>
               {TRADEOFFS.map((v) => (
                 <option key={v}>{v}</option>
@@ -223,16 +299,29 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
           </label>
         </div>
 
-        <div className="field">
-          <label>
-            备注（可选）
+        <div className="field w-full" style={{ width: "100%" }}>
+          <div className="space-y-2 w-full" style={{ width: "100%" }}>
+            <label style={{ fontSize: "0.92em", fontWeight: 600, opacity: 0.72 }}>备注（可选）</label>
             <textarea
               value={form.memo}
               onChange={(e) => setForm((p) => ({ ...p, memo: e.target.value }))}
-              placeholder="例如：最近作业量明显增加、孩子睡眠不足等"
-              rows={4}
+              placeholder="如有需要补充的情况，可简单说明"
+              rows={5}
+              className="w-full max-w-none px-4 py-3 text-[15px]"
+              style={{
+                width: "100%",
+                maxWidth: "none",
+                boxSizing: "border-box",
+                minHeight: 120,
+                lineHeight: "1.5rem",
+                resize: "vertical",
+                borderRadius: 12,
+                background: "#fff",
+                padding: "12px 16px",
+                fontSize: 15,
+              }}
             />
-          </label>
+          </div>
         </div>
 
         {error ? <p style={{ marginTop: 12, color: "#b42318", fontWeight: 650 }}>{error}</p> : null}

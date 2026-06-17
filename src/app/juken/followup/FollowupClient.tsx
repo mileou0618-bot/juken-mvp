@@ -9,15 +9,15 @@ type FollowupPayload = {
   studyEndTime: string;
   hardestSubject: string;
   currentMainProblem: string;
-  hardestTradeoff: string;
+  sacrificedArea: string;
   memo: string;
 };
 
 const JUKU_TYPES = ["SAPIX", "早稲田アカデミー", "四谷大塚", "日能研", "浜学園", "希学園", "その他"] as const;
 const END_TIME = ["20時前", "20-21時", "21-22時", "22-23時", "23時以降"] as const;
 const SUBJECTS = ["算数", "国語", "理科", "社会", "特に偏りなし"] as const;
-const MAIN_PROBLEMS = ["宿題が終わらない", "終わるが復習できない", "間違い直しが回らない", "声かけがないと動かない", "親子の衝突が増えた"] as const;
-const TRADEOFFS = ["塾の宿題が多すぎる", "間違い直しが多すぎる", "テスト直しが間に合わない", "暗記系が後回しになる", "減らす判断が難しい"] as const;
+const MAIN_PROBLEMS = ["宿題が終わらない", "終わっても復習する時間がない", "間違いを繰り返してしまう", "親が声をかけないと動かない", "親子の衝突が増えている", "最近、成績や偏差値が下がっている"] as const;
+const TRADEOFFS = ["間違えた問題の整理", "復習", "暗記", "テスト準備", "親子の余裕", "睡眠や休息"] as const;
 
 export default function JukenFollowupClient({ initialDiagnosisId }: { initialDiagnosisId: string }) {
   const diagnosisId = (initialDiagnosisId || "").trim();
@@ -29,7 +29,7 @@ export default function JukenFollowupClient({ initialDiagnosisId }: { initialDia
     studyEndTime: "",
     hardestSubject: "",
     currentMainProblem: "",
-    hardestTradeoff: "",
+    sacrificedArea: "",
     memo: "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -47,7 +47,7 @@ export default function JukenFollowupClient({ initialDiagnosisId }: { initialDia
     form.studyEndTime &&
     form.hardestSubject &&
     form.currentMainProblem &&
-    form.hardestTradeoff;
+    form.sacrificedArea;
 
   const onSubmit = async () => {
     if (submitting) return;
@@ -77,7 +77,8 @@ export default function JukenFollowupClient({ initialDiagnosisId }: { initialDia
           study_end_time: form.studyEndTime,
           hardest_subject: form.hardestSubject,
           current_main_problem: form.currentMainProblem,
-          hardest_tradeoff: form.hardestTradeoff,
+          sacrificed_area: form.sacrificedArea,
+          hardest_tradeoff: form.sacrificedArea,
           memo: form.memo || "",
         }),
       });
@@ -92,8 +93,10 @@ export default function JukenFollowupClient({ initialDiagnosisId }: { initialDia
       })() as any;
 
       if (!res.ok) {
-        const details = json?.error || json?.message || text;
-        setError(String(details || "送信に失敗しました。しばらくして再度お試しください。"));
+        // Avoid dumping HTML error pages into UI (e.g. Next.js runtime error pages).
+        // Keep details in console for debugging.
+        console.error("[juken/followup] submit failed", { status: res.status, text, json });
+        setError("送信に失敗しました。しばらくして再度お試しください。");
         setSubmitting(false);
         return;
       }
@@ -191,7 +194,7 @@ export default function JukenFollowupClient({ initialDiagnosisId }: { initialDia
 
         <div className="field">
           <label>
-            Q5 今の状態に最も近いものを選んでください
+            Q5 今いちばん困っていることはどれですか？
             <select
               value={form.currentMainProblem}
               onChange={(e) => setForm((p) => ({ ...p, currentMainProblem: e.target.value }))}
@@ -206,10 +209,10 @@ export default function JukenFollowupClient({ initialDiagnosisId }: { initialDia
 
         <div className="field">
           <label>
-            Q6 今週いちばん「減らすか迷っているもの」は何ですか？
+            Q6 最近、いちばん後回しになりやすいものはどれですか？
             <select
-              value={form.hardestTradeoff}
-              onChange={(e) => setForm((p) => ({ ...p, hardestTradeoff: e.target.value }))}
+              value={form.sacrificedArea}
+              onChange={(e) => setForm((p) => ({ ...p, sacrificedArea: e.target.value }))}
             >
               <option value="">選択してください</option>
               {TRADEOFFS.map((v) => (
@@ -219,16 +222,29 @@ export default function JukenFollowupClient({ initialDiagnosisId }: { initialDia
           </label>
         </div>
 
-        <div className="field">
-          <label>
-            メモ（任意）
+        <div className="field w-full" style={{ width: "100%" }}>
+          <div className="space-y-2 w-full" style={{ width: "100%" }}>
+            <label style={{ fontSize: "0.92em", fontWeight: 600, opacity: 0.72 }}>メモ（任意）</label>
             <textarea
               value={form.memo}
               onChange={(e) => setForm((p) => ({ ...p, memo: e.target.value }))}
-              placeholder="例：今週はテストが多い、算数が重い等"
-              rows={4}
+              placeholder="必要であれば、補足したい内容をご記入ください"
+              rows={5}
+              className="w-full max-w-none px-4 py-3 text-[15px]"
+              style={{
+                width: "100%",
+                maxWidth: "none",
+                boxSizing: "border-box",
+                minHeight: 120,
+                lineHeight: "1.5rem",
+                resize: "vertical",
+                borderRadius: 12,
+                background: "#fff",
+                padding: "12px 16px",
+                fontSize: 15,
+              }}
             />
-          </label>
+          </div>
         </div>
 
         {error ? <p style={{ marginTop: 12, color: "#b42318", fontWeight: 650 }}>{error}</p> : null}
@@ -242,4 +258,3 @@ export default function JukenFollowupClient({ initialDiagnosisId }: { initialDia
     </main>
   );
 }
-

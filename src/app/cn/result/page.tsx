@@ -206,22 +206,87 @@ export default function CnResultPage() {
           </p>
         </section>
 
-        <section className="result-module result-cta">
-          <h2 className="result-cta-title">想进一步确认家庭学习情况？</h2>
+        <section className="result-module result-main-cta">
+          <h2 className="result-cta-title">接下来这一周，最应该先调整哪里？</h2>
           <div className="result-cta-body">
             <p className="result-text">
-              {diagnosisId ? (
-                <>
-                  添加微信后，请发送诊断ID。
-                  我会根据结果，帮你一起确认现在最需要先整理的地方。
-                </>
-              ) : (
-                <>添加微信后，请说明你想咨询的家庭学习情况。</>
-              )}
+              很多家庭的问题不是不努力，
+              <br />
+              而是不知道哪些该继续，哪些该先停下来。
+            </p>
+            <div className="result-text" style={{ marginTop: 12 }}>
+              <div>补充6个问题后，你将获得：</div>
+              <ul style={{ margin: "10px 0 0", paddingLeft: 18, lineHeight: 2 }}>
+                <li>本周最优先处理的问题</li>
+                <li>哪些任务可以先暂停或减少</li>
+                <li>家长应该介入到哪里</li>
+                <li>接下来7天如何安排</li>
+              </ul>
+              <div style={{ marginTop: 12 }}>帮助先把家庭学习重新拉回稳定状态。</div>
+            </div>
+
+            <div
+              style={{
+                marginTop: 16,
+                padding: "16px 18px",
+                borderRadius: 20,
+                border: "1px solid rgba(42, 64, 86, 0.12)",
+                background: "#fff",
+              }}
+            >
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#2A4056" }}>整理方案预览</div>
+              <div style={{ marginTop: 6, fontSize: 13, color: "#8A8680" }}>实际内容会根据诊断结果和补充问题生成。</div>
+
+              <div style={{ marginTop: 12, lineHeight: 1.7, color: "#3A4A5A" }}>
+                <div style={{ fontWeight: 700, color: "#2A4056" }}>本周重点</div>
+                <div style={{ marginTop: 4 }}>复习回收</div>
+              </div>
+
+              <div style={{ marginTop: 10, lineHeight: 1.7, color: "#3A4A5A" }}>
+                <div style={{ fontWeight: 700, color: "#2A4056" }}>优先处理</div>
+                <div style={{ marginTop: 6 }}>✓ 国语错题回顾</div>
+                <div>✓ 算数订正复盘</div>
+              </div>
+
+              <div style={{ marginTop: 10, lineHeight: 1.7, color: "#3A4A5A" }}>
+                <div style={{ fontWeight: 700, color: "#2A4056" }}>本周先减少</div>
+                <div style={{ marginTop: 6 }}>✗ 新资料整理</div>
+              </div>
+
+              <div style={{ marginTop: 10, lineHeight: 1.7, color: "#3A4A5A" }}>
+                <div style={{ fontWeight: 700, color: "#2A4056" }}>家长本周</div>
+                <div style={{ marginTop: 6 }}>✓ 每天检查错题本</div>
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 13, color: "#8A8680", lineHeight: 1.7 }}>
+                这是示例内容。
+                实际方案会根据家庭情况生成。
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <Link
+              href={diagnosisId ? `/cn/followup?diagnosisId=${encodeURIComponent(diagnosisId)}` : "/cn/followup"}
+              className="cta light"
+              style={{ display: "inline-block", minWidth: 330, paddingLeft: 28, paddingRight: 28, fontSize: 18 }}
+            >
+              生成我家本周整理方案
+            </Link>
+          </div>
+          <div style={{ marginTop: 6, fontSize: 13, color: "#8A8680" }}>预计用时约1分钟</div>
+        </section>
+
+        <section className="result-module result-cta">
+          <h2 className="result-cta-title">需要先咨询？</h2>
+          <div className="result-cta-body">
+            <p className="result-text">
+              不确定是否需要整理方案，可以先添加微信，并发送诊断ID咨询。
             </p>
           </div>
+
           <div className="cn-wechat-qr">
-            <Image src="/wechat-qr.jpg" alt="微信二维码" width={520} height={520} />
+            <Image src="/wechat-qr.jpg" alt="微信二维码" width={360} height={360} />
             <div className="cn-wechat-qr-note">扫码添加微信</div>
           </div>
           <div style={{ marginTop: 12 }} className="cn-wechat-row">
