@@ -27,6 +27,19 @@ const OPTIONS = [
   { label: "5", text: "非常符合", value: 5 },
 ];
 
+const CRAM_SCHOOL_OPTIONS = [
+  "SAPIX",
+  "早稻田Academy",
+  "四谷大塚",
+  "日能研",
+  "希学园",
+  "浜学园",
+  "能开中心",
+  "市进学院",
+  "栄光ゼミナール",
+  "其他",
+];
+
 function isMobile() {
   if (typeof window === "undefined") return false;
   return window.innerWidth < 768;
@@ -39,6 +52,8 @@ export default function CnDiagnosisPage() {
   const perStep = isSp ? 4 : 18;
   const emailRef = useRef<HTMLInputElement | null>(null);
   const gradeRef = useRef<HTMLSelectElement | null>(null);
+  const cramSchoolRef = useRef<HTMLSelectElement | null>(null);
+  const cramSchoolOtherRef = useRef<HTMLInputElement | null>(null);
 
   const [profile, setProfile] = useState<Profile>({
     name: "",
@@ -46,6 +61,8 @@ export default function CnDiagnosisPage() {
     grade: "",
     cramSchool: "",
   });
+  const [cramSchoolSelection, setCramSchoolSelection] = useState("");
+  const [cramSchoolOther, setCramSchoolOther] = useState("");
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -80,6 +97,19 @@ export default function CnDiagnosisPage() {
       }),
     [answers, currentQuestions]
   );
+
+  const syncCramSchool = (selection: string, otherValue: string) => {
+    if (!selection) {
+      setProfile((p) => ({ ...p, cramSchool: "" }));
+      return;
+    }
+    if (selection === "其他") {
+      const normalized = otherValue.trim();
+      setProfile((p) => ({ ...p, cramSchool: normalized || "其他" }));
+      return;
+    }
+    setProfile((p) => ({ ...p, cramSchool: selection }));
+  };
 
   const validateProfile = () => {
     const errors: { email?: string; grade?: string } = {};
@@ -350,12 +380,44 @@ export default function CnDiagnosisPage() {
 
             <label>
               就读塾（可不填）
-              <input
-                value={profile.cramSchool ?? ""}
-                onChange={(e) => setProfile((p) => ({ ...p, cramSchool: e.target.value }))}
-                placeholder="例如：SAPIX、早稻田学院、日能研等"
-              />
+              <select
+                value={cramSchoolSelection}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setCramSchoolSelection(next);
+                  if (next !== "其他") {
+                    setCramSchoolOther("");
+                  }
+                  syncCramSchool(next, next === "其他" ? cramSchoolOther : "");
+                }}
+                ref={cramSchoolRef}
+              >
+                <option value="">请选择就读塾</option>
+                {CRAM_SCHOOL_OPTIONS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
             </label>
+            {cramSchoolSelection === "其他" ? (
+              <label>
+                其他塾名称
+                <input
+                  value={cramSchoolOther}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setCramSchoolOther(next);
+                    syncCramSchool("其他", next);
+                  }}
+                  placeholder="请输入塾名称"
+                  ref={cramSchoolOtherRef}
+                />
+              </label>
+            ) : null}
+            {cramSchoolSelection === "其他" ? (
+              <p className="field-help">如果没有填写，也可以直接提交，我们会按“其他”记录。</p>
+            ) : null}
           </div>
         </section>
 
