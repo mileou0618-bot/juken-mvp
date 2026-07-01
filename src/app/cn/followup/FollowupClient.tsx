@@ -36,7 +36,8 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copiedWechatId, setCopiedWechatId] = useState(false);
+  const [copiedConsult, setCopiedConsult] = useState(false);
   const [qrMissing, setQrMissing] = useState(false);
 
   // Keep diagnosisId in sync if user lands with query later.
@@ -45,17 +46,33 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
   }, [diagnosisId]);
 
   useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1800);
+    if (!copiedWechatId) return;
+    const timer = setTimeout(() => setCopiedWechatId(false), 1800);
     return () => clearTimeout(timer);
-  }, [copied]);
+  }, [copiedWechatId]);
+
+  useEffect(() => {
+    if (!copiedConsult) return;
+    const timer = setTimeout(() => setCopiedConsult(false), 1800);
+    return () => clearTimeout(timer);
+  }, [copiedConsult]);
 
   const copyText = useMemo(() => {
-    const lines = ["家庭学习整理"];
-    if (diagnosisId) lines.push(`诊断ID：${diagnosisId}`);
-    return lines.join("\n");
+    const resolvedId = diagnosisId || "未取得";
+    return [
+      "你好，我已经完成家庭学习管理诊断和补充问题。",
+      `诊断ID：${resolvedId}`,
+      "我想了解是否适合做「家庭学习结构诊断整理」。",
+    ].join("\n");
   }, [diagnosisId]);
   const displayDiagnosisId = diagnosisId || "未取得";
+  const openWeChat = () => {
+    try {
+      window.open("https://www.wechat.com/", "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error("[cn/followup] open wechat failed", e);
+    }
+  };
 
   const canSubmit =
     form.diagnosisId &&
@@ -148,16 +165,74 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
         <h1 className="legal-title">已收到补充信息</h1>
         <section className="legal-section" style={{ display: "grid", gap: 18 }}>
           <p className="result-text" style={{ margin: 0 }}>
-            根据诊断结果和补充信息，我们会整理一份《7天家庭学习整理包》。
+            谢谢你的补充。
+            <br />
+            根据诊断结果和补充信息，我们已经可以进一步整理目前家庭学习中值得关注的地方。
           </p>
 
-          <div className="cn-wechat-qr" style={{ maxWidth: 240, margin: "0 auto" }}>
+          <div style={{ display: "grid", gap: 10 }}>
+            <h2 className="result-title" style={{ margin: 0, fontSize: "1.15rem" }}>
+              下一步可以做什么？
+            </h2>
+            <p className="result-text" style={{ margin: 0 }}>
+              很多时候，家长最先看到的是成绩变化、学习时间、某一科下滑。
+              <br />
+              但真正需要确认的，可能是学习结构中哪个环节开始失衡。
+            </p>
+            <p className="result-text" style={{ margin: 0 }}>
+              如果你希望进一步整理，我们可以根据目前资料，做一次：
+              <br />
+              <strong>《家庭学习结构诊断整理》</strong>
+            </p>
+          </div>
+
+          <div className="cn-followup-summary" style={{ display: "grid", gap: 10 }}>
+            <h2 className="result-title" style={{ margin: 0, fontSize: "1.12rem" }}>
+              这份整理会重点看什么？
+            </h2>
+            <ul className="result-text" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.85 }}>
+              <li>当前最值得关注的问题方向</li>
+              <li>哪些判断目前有依据支持</li>
+              <li>哪些地方还需要进一步确认</li>
+              <li>家长可能忽略或误判的地方</li>
+              <li>接下来一段时间最值得优先观察什么</li>
+            </ul>
+          </div>
+
+          <div className="cn-followup-boundary" style={{ display: "grid", gap: 10 }}>
+            <h2 className="result-title" style={{ margin: 0, fontSize: "1.12rem" }}>
+              这不是普通学习计划
+            </h2>
+            <p className="result-text" style={{ margin: 0 }}>
+              本服务不提供逐题讲解，也不代替塾或家庭教师的学科指导。
+              <br />
+              它的重点是帮助家长先看清：现在到底更像卡在时间、效率、复习回收、任务顺序，还是家庭学习结构本身。
+            </p>
+          </div>
+
+          <div className="cn-followup-paid" style={{ display: "grid", gap: 10 }}>
+            <h2 className="result-title" style={{ margin: 0, fontSize: "1.12rem" }}>
+              目前为测试中的付费整理服务
+            </h2>
+            <p className="result-text" style={{ margin: 0 }}>
+              目前该服务仍在测试阶段。
+              <br />
+              如果你希望进一步整理，可以通过微信联系，并发送诊断ID。
+              <br />
+              我们会根据目前资料确认是否适合继续整理。
+            </p>
+            <p className="result-text" style={{ margin: 0, fontWeight: 700 }}>
+              测试价：9800日元
+            </p>
+          </div>
+
+          <div className="cn-wechat-qr" style={{ maxWidth: 180, margin: "0 auto" }}>
             {!qrMissing ? (
               <Image
                 src="/wechat-qr.jpg"
                 alt="微信二维码"
-                width={520}
-                height={520}
+                width={360}
+                height={360}
                 style={{ width: "100%", height: "auto", display: "block" }}
                 priority
                 onError={() => {
@@ -170,14 +245,13 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
           </div>
 
           <div style={{ display: "grid", gap: 8 }}>
-            <h2 className="result-title" style={{ margin: 0, fontSize: "1.25rem" }}>
-              下一步：添加微信领取整理包
+            <h2 className="result-title" style={{ margin: 0, fontSize: "1.08rem" }}>
+              微信联系入口
             </h2>
             <p className="result-text" style={{ margin: 0 }}>
-              请添加下方微信，并发送：
-            </p>
-            <p className="result-text" style={{ margin: 0, whiteSpace: "pre-line" }}>
-              {copyText}
+              请添加微信，并发送诊断ID。
+              <br />
+              如果希望申请「家庭学习结构诊断整理」，请在微信里说明。
             </p>
             <div className="result-text" style={{ margin: 0 }}>
               微信号：<strong>Juken-family</strong>
@@ -187,28 +261,45 @@ export default function FollowupClient({ initialDiagnosisId }: { initialDiagnosi
             </div>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+          <div style={{ display: "grid", gap: 10 }}>
+            <button
+              type="button"
+              className="cta"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(`Juken-family`);
+                  setCopiedWechatId(true);
+                } catch (e) {
+                  console.error("[cn/followup] copy wechat id failed", e);
+                }
+              }}
+              style={{ width: "100%", minWidth: 180 }}
+            >
+              复制微信号
+            </button>
+            <span style={{ color: "#7A6E5C", fontSize: 14 }}>{copiedWechatId ? "微信号已复制" : ""}</span>
+
             <button
               type="button"
               className="cta"
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(copyText);
-                  setCopied(true);
+                  setCopiedConsult(true);
                 } catch (e) {
-                  console.error("[cn/followup] copy failed", e);
+                  console.error("[cn/followup] copy consult info failed", e);
                 }
               }}
-              style={{ width: "auto", minWidth: 180 }}
+              style={{ width: "100%", minWidth: 180 }}
             >
-              复制微信发送内容
+              复制咨询信息
             </button>
-            <span style={{ color: "#7A6E5C", fontSize: 14 }}>{copied ? "已复制，请到微信发送" : ""}</span>
-          </div>
+            <span style={{ color: "#7A6E5C", fontSize: 14 }}>{copiedConsult ? "已复制，请到微信发送" : ""}</span>
 
-          <p className="result-text" style={{ margin: 0, color: "#5F5A52" }}>
-            预计阅读时间：3分钟左右
-          </p>
+            <button type="button" className="cta light" onClick={openWeChat} style={{ width: "100%", minWidth: 180 }}>
+              打开微信
+            </button>
+          </div>
         </section>
       </main>
     );
